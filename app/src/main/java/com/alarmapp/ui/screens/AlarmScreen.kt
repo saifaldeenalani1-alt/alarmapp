@@ -152,6 +152,7 @@ fun AlarmCard(alarm: Alarm, onToggle: () -> Unit, onDelete: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddAlarmDialog(onDismiss: () -> Unit, onSave: (Alarm) -> Unit) {
     val context = LocalContext.current

@@ -137,7 +137,7 @@ fun TimerScreen() {
 fun TimeInputField(label: String, value: String, onValueChange: (String) -> Unit) {
     OutlinedTextField(
         value = value,
-        onValueChange = { input ->
+        onValueChange = { input: String ->
             val filtered = input.filter { it.isDigit() }
             if (filtered.length <= 2) onValueChange(filtered)
         },

@@ -14,10 +14,6 @@ object LocaleHelper {
         val config = Configuration(context.resources.configuration)
         config.setLocale(locale)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            config.locales = android.os.LocaleList(locale)
-        }
-
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
             context.createConfigurationContext(config)
         } else {

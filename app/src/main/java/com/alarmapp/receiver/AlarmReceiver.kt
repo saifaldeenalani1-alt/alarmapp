@@ -27,7 +27,7 @@ class AlarmReceiver : BroadcastReceiver() {
         if (!alarm.isEnabled) return
 
         val settings = prefs.getSettings()
-        showAlarmNotification(context, alarm.label, settings)
+        showAlarmNotification(context, alarmId, alarm.label, settings)
 
         val nextCal = java.util.Calendar.getInstance()
         nextCal.add(java.util.Calendar.MINUTE, interval)
@@ -66,7 +66,7 @@ class AlarmReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun showAlarmNotification(context: Context, label: String, settings: AppSettings) {
+    private fun showAlarmNotification(context: Context, alarmId: String, label: String, settings: AppSettings) {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
