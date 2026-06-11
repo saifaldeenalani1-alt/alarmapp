@@ -13,27 +13,17 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Setup SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Create local.properties
+        run: echo "sdk.dir=/usr/local/lib/android/sdk" > local.properties
+
       - name: Generate Gradle wrapper (8.11.1)
         run: gradle wrapper --gradle-version=8.11.1
 
       - name: Build
-        shell: bash
-        run: |
-          ./gradlew assembleDebug --no-daemon --stacktrace --info 2>&1 | tee /tmp/build.log
-        env:
-          ANDROID_HOME: /usr/local/lib/android/sdk
-          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-
-      - name: Show error in summary
-        if: failure()
-        shell: bash
-        run: |
-          {
-            echo '### Build Error Log'
-            echo '```'
-            tail -200 /tmp/build.log
-            echo '```'
-          } >> $GITHUB_STEP_SUMMARY
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK
         if: success()
