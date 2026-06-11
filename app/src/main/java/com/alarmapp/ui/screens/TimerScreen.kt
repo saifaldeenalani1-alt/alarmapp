@@ -45,8 +45,8 @@ fun TimerScreen() {
     fun refreshActiveTimers() {
         val ids = FloatingTimerService.getActiveTimerIds()
         activeTimers = ids.map { id ->
-            val info = FloatingTimerService.getTimerInfo(id)
-            TimerInfo(id, info?.displaySeconds ?: 0L, info?.isRunning ?: false)
+            val pair = FloatingTimerService.getTimerInfo(id)
+            TimerInfo(id, pair?.first ?: 0L, pair?.second ?: false)
         }
     }
 
