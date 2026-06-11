@@ -17,7 +17,7 @@ jobs:
         with:
           gradle-version: 8.11.1
 
-      - name: Build Debug APK
+      - name: Build
         shell: bash
         run: |
           set -o pipefail
@@ -26,14 +26,12 @@ jobs:
           ANDROID_HOME: /usr/local/lib/android/sdk
           ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
-      - name: Show Gradle error output
+      - name: Upload logs on failure
         if: failure()
-        shell: bash
-        run: tail -200 /tmp/gradle.log
-
-      - name: Locate APK
-        if: always()
-        run: find / -name "*.apk" -type f 2>/dev/null || echo "No APK found"
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: /tmp/gradle.log
 
       - name: Upload APK
         if: success()
