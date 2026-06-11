@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -134,17 +135,17 @@ fun TimerScreen() {
 }
 
 @Composable
-fun TimeInputField(label: String, value: String, onValueChange: (String) -> Unit) {
+fun TimeInputField(fieldLabel: String, value: String, onValueChange: (String) -> Unit) {
     OutlinedTextField(
         value = value,
         onValueChange = { input: String ->
             val filtered = input.filter { it.isDigit() }
             if (filtered.length <= 2) onValueChange(filtered)
         },
-        label = { Text(label) },
+        label = { Text(fieldLabel) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         modifier = Modifier.width(90.dp),
-        textAlign = TextAlign.Center,
+        textStyle = TextStyle(textAlign = TextAlign.Center),
         singleLine = true
     )
 }
