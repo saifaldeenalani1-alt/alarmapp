@@ -1,17 +1,10 @@
 name: Build Android APK
 
-on:
-  push:
-    branches: [ main, master ]
-  workflow_dispatch:
-
-permissions:
-  contents: read
+on: [push, workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -22,43 +15,21 @@ jobs:
           java-version: '17'
 
       - name: Setup Android SDK
-        run: |
-          SDK_URL="https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
-          curl -fsSL "$SDK_URL" -o /tmp/cmdline-tools.zip
-          mkdir -p $HOME/android/cmdline-tools
-          unzip -q /tmp/cmdline-tools.zip -d $HOME/android/cmdline-tools/
-          mv $HOME/android/cmdline-tools/cmdline-tools $HOME/android/cmdline-tools/latest
-          yes | $HOME/android/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android "platforms;android-35" "build-tools;35.0.1" > /dev/null 2>&1 || true
-          echo "ANDROID_SDK_ROOT=$HOME/android" >> $GITHUB_ENV
-          echo "ANDROID_HOME=$HOME/android" >> $GITHUB_ENV
-          echo "sdk.dir=$HOME/android" > local.properties
+        uses: android-actions/setup-android@v3
 
-      - name: Generate Gradle wrapper
-        run: |
-          gradle wrapper --gradle-version=8.11.1 2>/dev/null || true
-          chmod +x gradlew
+      - name: Make wrapper executable
+        run: chmod +x gradlew
 
-      - name: Build APK
+      - name: Package APK directly
         run: |
-          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
-          echo "EXIT_CODE=$?" >> $GITHUB_ENV
+          ./gradlew :app:packageDebug --no-daemon 2>&1
+          echo "Build exit code: $?"
 
-      - name: Show results
-        if: always()
-        run: |
-          echo "=== Last 50 lines of build log ==="
-          tail -50 build.log
-          echo "=== APK search ==="
-          find $HOME/android -name "*.apk" 2>/dev/null
-          find app/build -name "*.apk" 2>/dev/null
-          find app/build -type f 2>/dev/null | head -30
+      - name: List outputs
+        run: find app/build -type f -name "*.apk" -exec ls -la {} \;
 
-      - name: Upload APK
-        if: env.EXIT_CODE == '0'
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: AlarmApp-Debug
-          path: |
-            app/build/outputs/apk/debug/*.apk
-            app/build/outputs/**/*.apk
-          if-no-files-found: ignore
+          name: apk
+          path: app/build/**/*.apk
