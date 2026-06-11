@@ -17,6 +17,19 @@ jobs:
         with:
           gradle-version: 8.11.1
 
+      - name: Diagnose
+        shell: bash
+        continue-on-error: true
+        run: |
+          echo '### SDK' >> $GITHUB_STEP_SUMMARY
+          ls -la /usr/local/lib/android/sdk/platforms/ >> $GITHUB_STEP_SUMMARY
+          ls -la /usr/local/lib/android/sdk/build-tools/ >> $GITHUB_STEP_SUMMARY
+          echo '### Gradle projects' >> $GITHUB_STEP_SUMMARY
+          gradle projects --no-daemon >> $GITHUB_STEP_SUMMARY 2>&1
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
       - name: Build
         shell: bash
         run: |
@@ -26,12 +39,14 @@ jobs:
           ANDROID_HOME: /usr/local/lib/android/sdk
           ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
-      - name: Upload logs on failure
+      - name: Error details
         if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-logs
-          path: /tmp/gradle.log
+        shell: bash
+        run: |
+          echo '### Build Error' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -100 /tmp/gradle.log >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload APK
         if: success()
