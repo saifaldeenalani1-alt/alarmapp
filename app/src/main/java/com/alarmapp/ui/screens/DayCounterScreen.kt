@@ -61,7 +61,7 @@ fun DayCounterScreen() {
                 items(events, key = { it.id }) { event ->
                     EventCard(
                         event = event,
-                        onEdit = { e -> editingEvent = e; showDialog = true },
+                        onEdit = { editingEvent = event; showDialog = true },
                         onDelete = {
                             prefs.deleteEvent(event.id)
                             refresh()
