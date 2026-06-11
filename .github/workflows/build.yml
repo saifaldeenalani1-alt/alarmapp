@@ -42,21 +42,22 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tail -200
+        run: |
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tail -200
+          echo "=== Exit code: $? ==="
 
-      - name: Find APK
+      - name: Find and copy APK
         if: always()
         run: |
-          echo "=== Full build tree ==="
-          find app/build -type d -maxdepth 5 2>/dev/null
-          echo "=== APK files ==="
-          find app/build -name "*.apk" -type f 2>/dev/null || echo "NO APK FOUND"
-          echo "=== AAB files ==="
-          find app/build -name "*.aab" -type f 2>/dev/null || echo "NO AAB FOUND"
-
-      - name: Upload artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: AlarmApp-Debug
-          path: app/build/**/*.apk
+          find / -name "*.apk" -type f 2>/dev/null | head -20
+          find /home -name "*.apk" -type f 2>/dev/null | head -20
+          echo "--- Project tree ---"
+          find . -type f -name "*.apk" 2>/dev/null
+          find . -type f -name "*.aab" 2>/dev/null
+          echo "--- build dirs ---"
+          find . -type d -name "outputs" 2>/dev/null
+          echo "--- app/build contents ---"
+          find app/build -type f 2>/dev/null | head -30
+          echo "--- checking variant ---"
+          find app/build -type d -name "variant*" 2>/dev/null
+          ./gradlew --no-daemon :app:printVariants 2>/dev/null || true
