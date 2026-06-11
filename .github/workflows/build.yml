@@ -23,10 +23,7 @@ jobs:
         run: gradle wrapper --gradle-version=8.11.1
 
       - name: Build
-        id: build
-        run: |
-          set -o pipefail
-          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK
         if: success()
@@ -34,9 +31,3 @@ jobs:
         with:
           name: AlarmApp-Debug
           path: "**/outputs/apk/debug/*.apk"
-
-      - name: Report build error as issue
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh issue create --title "Build failed #${{ github.run_number }}" --label build-failure --body-file build.log
