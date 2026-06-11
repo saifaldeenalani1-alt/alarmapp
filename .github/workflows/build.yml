@@ -35,22 +35,12 @@ jobs:
           name: AlarmApp-Debug
           path: "**/outputs/apk/debug/*.apk"
 
-      - name: Upload build logs
+      - name: Report build error as issue
         if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-logs-${{ github.run_number }}
-          path: build.log
-
-      - name: Show build error log
-        if: failure()
-        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          echo "## Build Log" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          curl -sL -H "Authorization: token ${{ github.token }}" \
-            "${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/logs" \
-            -o /tmp/logs.zip 2>&1
-          unzip -p /tmp/logs.zip 2>/dev/null | tail -200 >> $GITHUB_STEP_SUMMARY || echo "unzip failed" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "done"
+          gh issue create \
+            --title "Build #${{ github.run_number }} - $(date)" \
+            --label "build-failure" \
+            --body "$(cat build.log | head -c 60000)"
