@@ -48,7 +48,11 @@ class DayCounterWidget : AppWidgetProvider() {
             }
 
             views.setTextViewText(R.id.widget_event_name, event.name)
-            views.setTextViewText(R.id.widget_days_count, diff.toString())
+            views.setTextViewText(R.id.widget_days_count, if (diff < 0) "0" else diff.toString())
+            views.setTextColor(R.id.widget_event_name, event.widgetTextColor)
+            views.setTextColor(R.id.widget_days_count, event.widgetTextColor)
+            views.setTextColor(R.id.widget_days_label, event.widgetTextColor)
+            views.setInt(R.id.widget_root, "setBackgroundColor", event.widgetBgColor)
         } else {
             views.setTextViewText(R.id.widget_event_name, context.getString(R.string.day_counter))
             views.setTextViewText(R.id.widget_days_count, "--")
@@ -62,7 +66,7 @@ class DayCounterWidget : AppWidgetProvider() {
             context, 0, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        views.setOnClickPendingIntent(R.id.widget_event_name, pendingIntent)
+        views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
 
         appWidgetManager.updateAppWidget(widgetId, views)
     }

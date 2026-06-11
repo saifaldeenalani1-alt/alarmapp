@@ -1,6 +1,7 @@
 package com.alarmapp.ui.screens
 
 import android.app.DatePickerDialog
+import android.appwidget.AppWidgetManager
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -72,6 +73,15 @@ fun DayCounterScreen() {
                 prefs.saveEvent(event)
                 refresh()
                 showAddDialog = false
+                val ids = AppWidgetManager.getInstance(context)
+                    .getAppWidgetIds(android.content.ComponentName(context, com.alarmapp.widget.DayCounterWidget::class.java))
+                if (ids.isNotEmpty()) {
+                    val updateIntent = android.content.Intent(context, com.alarmapp.widget.DayCounterWidget::class.java).apply {
+                        action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+                    }
+                    context.sendBroadcast(updateIntent)
+                }
             }
         )
     }
@@ -140,12 +150,14 @@ fun AddEventDialog(onDismiss: () -> Unit, onSave: (DayCounterEvent) -> Unit) {
     var selectedDateMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     var isCountdown by remember { mutableStateOf(true) }
     var dateText by remember { mutableStateOf(formatDateFull(System.currentTimeMillis())) }
+    var widgetTextColor by remember { mutableStateOf(0xFFFFFFFF.toInt()) }
+    var widgetBgColor by remember { mutableStateOf(0xCC000000.toInt()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("إضافة مناسبة") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -179,6 +191,29 @@ fun AddEventDialog(onDismiss: () -> Unit, onSave: (DayCounterEvent) -> Unit) {
                     Switch(checked = isCountdown, onCheckedChange = { isCountdown = it })
                     Text("تصاعدي (مضى)")
                 }
+
+                Text("تخصيص الـ widget", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text("لون الخط", style = MaterialTheme.typography.bodySmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(
+                        "أبيض" to 0xFFFFFFFF.toInt(), "أحمر" to 0xFFD93030.toInt(),
+                        "أخضر" to 0xFF34A853.toInt(), "أزرق" to 0xFF1A73E8.toInt(),
+                        "أسود" to 0xFF000000.toInt()
+                    ).forEach { (label, color) ->
+                        ColorButton(color = color, label = label, isSelected = widgetTextColor == color, onClick = { widgetTextColor = color })
+                    }
+                }
+
+                Text("لون الخلفية", style = MaterialTheme.typography.bodySmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(
+                        "أسود" to 0xCC000000.toInt(), "أزرق" to 0xCC1A73E8.toInt(),
+                        "أخضر" to 0xCC34A853.toInt(), "أحمر" to 0xCCD93030.toInt(),
+                        "رمادي" to 0xCC444444.toInt()
+                    ).forEach { (label, color) ->
+                        ColorButton(color = color, label = label, isSelected = widgetBgColor == color, onClick = { widgetBgColor = color })
+                    }
+                }
             }
         },
         confirmButton = {
@@ -189,7 +224,9 @@ fun AddEventDialog(onDismiss: () -> Unit, onSave: (DayCounterEvent) -> Unit) {
                         DayCounterEvent(
                             name = name,
                             date = selectedDateMillis,
-                            isCountdown = isCountdown
+                            isCountdown = isCountdown,
+                            widgetTextColor = widgetTextColor,
+                            widgetBgColor = widgetBgColor
                         )
                     )
                 }

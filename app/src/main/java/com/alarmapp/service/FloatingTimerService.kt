@@ -1,9 +1,10 @@
 package com.alarmapp.service
 
+import android.app.Notification
 import android.app.Service
 import android.content.Intent
-import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -16,91 +17,134 @@ import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import com.alarmapp.AlarmApp
 import com.alarmapp.R
-import com.alarmapp.data.PreferencesManager
-import com.alarmapp.model.AppSettings
-import com.alarmapp.model.FloatingTimerState
-import com.alarmapp.model.TimerMode
-import com.alarmapp.model.TimerStatus
 import com.alarmapp.util.formatTimeShort
 
 class FloatingTimerService : Service() {
 
     private lateinit var windowManager: WindowManager
-    private lateinit var floatingView: View
-    private lateinit var timerText: TextView
-    private lateinit var statusText: TextView
-    private lateinit var prefs: PreferencesManager
-    private var params: WindowManager.LayoutParams? = null
-
-    private var totalSeconds: Long = 0
-    private var elapsedSeconds: Long = 0
-    private var isCountdown: Boolean = true
-    private var isRunning: Boolean = false
-    private var isPaused: Boolean = false
-
     private val handler = Handler(Looper.getMainLooper())
-    private val tickRunnable = object : Runnable {
-        override fun run() {
-            if (isRunning) {
-                if (isCountdown) {
-                    elapsedSeconds++
-                    if (elapsedSeconds >= totalSeconds) {
-                        elapsedSeconds = totalSeconds
-                        isRunning = false
-                        isPaused = false
-                        timerText.text = "00:00:00"
-                        statusText.text = getString(R.string.tap_to_start_stop)
-                        stopSelf()
-                        return
-                    }
-                } else {
-                    elapsedSeconds++
-                }
-                updateDisplay()
-                handler.postDelayed(this, 1000L)
+    private var notificationId = 100
+    private var isForeground = false
+
+    private data class TimerInstance(
+        val id: String,
+        var totalSeconds: Long,
+        var elapsedSeconds: Long,
+        var isCountdown: Boolean,
+        var isRunning: Boolean,
+        var isPaused: Boolean,
+        var view: View,
+        var timerText: TextView,
+        var paramX: Int,
+        var paramY: Int,
+        val fontSize: Int,
+        val fontColor: Int,
+        val bgColor: Int,
+        val bgTransparency: Int
+    )
+
+    private val timers = mutableMapOf<String, TimerInstance>()
+
+    companion object {
+        private var instance: FloatingTimerService? = null
+        const val ACTION_ADD = "com.alarmapp.action.ADD_TIMER"
+        const val ACTION_REMOVE = "com.alarmapp.action.REMOVE_TIMER"
+        const val ACTION_STOP_ALL = "com.alarmapp.action.STOP_ALL"
+
+        fun getActiveTimerIds(): Set<String> = instance?.timers?.keys?.toSet() ?: emptySet()
+
+        fun getTimerInfo(id: String): Pair<Long, Boolean>? {
+            val t = instance?.timers?.get(id) ?: return null
+            val display = if (t.isCountdown) t.totalSeconds - t.elapsedSeconds else t.elapsedSeconds
+            return Pair(display, t.isRunning)
+        }
+
+        fun start(
+            context: android.content.Context,
+            timerId: String,
+            totalSeconds: Long,
+            isCountdown: Boolean,
+            fontSize: Int = 24,
+            fontColor: Int = 0xFFFFFFFF.toInt(),
+            bgColor: Int = 0xCC000000.toInt(),
+            bgTransparency: Int = 80
+        ) {
+            val intent = Intent(context, FloatingTimerService::class.java).apply {
+                action = ACTION_ADD
+                putExtra("timer_id", timerId)
+                putExtra("total_seconds", totalSeconds)
+                putExtra("elapsed_seconds", 0L)
+                putExtra("is_countdown", isCountdown)
+                putExtra("font_size", fontSize)
+                putExtra("font_color", fontColor)
+                putExtra("bg_color", bgColor)
+                putExtra("bg_transparency", bgTransparency)
             }
+            context.startForegroundService(intent)
+        }
+
+        fun remove(context: android.content.Context, timerId: String) {
+            val intent = Intent(context, FloatingTimerService::class.java).apply {
+                action = ACTION_REMOVE
+                putExtra("timer_id", timerId)
+            }
+            context.startService(intent)
+        }
+
+        fun stopAll(context: android.content.Context) {
+            context.startService(Intent(context, FloatingTimerService::class.java).apply {
+                action = ACTION_STOP_ALL
+            })
         }
     }
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        prefs = PreferencesManager(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        totalSeconds = intent?.getLongExtra("total_seconds", 0) ?: 0
-        elapsedSeconds = intent?.getLongExtra("elapsed_seconds", 0) ?: 0
-        isCountdown = intent?.getBooleanExtra("is_countdown", true) ?: true
-
-        showFloatingView()
-
-        val notification = NotificationCompat.Builder(this, AlarmApp.CHANNEL_FLOATING_TIMER)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle(getString(R.string.floating_timer_active))
-            .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
-
-        startForeground(3, notification)
-        return START_STICKY
+        when (intent?.action) {
+            ACTION_ADD -> handleAddTimer(intent)
+            ACTION_REMOVE -> handleRemoveTimer(intent)
+            ACTION_STOP_ALL -> handleStopAll()
+        }
+        return if (timers.isEmpty()) START_NOT_STICKY else START_STICKY
     }
 
-    private fun showFloatingView() {
-        if (::floatingView.isInitialized) return
+    private fun handleAddTimer(intent: Intent) {
+        val timerId = intent.getStringExtra("timer_id") ?: return
+        if (timers.containsKey(timerId)) return
+
+        val totalSeconds = intent.getLongExtra("total_seconds", 0)
+        val elapsedSeconds = intent.getLongExtra("elapsed_seconds", 0)
+        val isCountdown = intent.getBooleanExtra("is_countdown", true)
+        val fontSize = intent.getIntExtra("font_size", 24)
+        val fontColor = intent.getIntExtra("font_color", 0xFFFFFFFF.toInt())
+        val bgColor = intent.getIntExtra("bg_color", 0xCC000000.toInt())
+        val bgTransparency = intent.getIntExtra("bg_transparency", 80)
+
+        if (totalSeconds <= 0) return
 
         val inflater = LayoutInflater.from(this)
-        floatingView = inflater.inflate(R.layout.floating_timer, null)
+        val view = inflater.inflate(R.layout.floating_timer, null)
+        val timerText = view.findViewById<TextView>(R.id.floating_timer_text)
 
-        timerText = floatingView.findViewById(R.id.floating_timer_text)
-        statusText = floatingView.findViewById(R.id.floating_status_text)
-
-        val settings = prefs.getSettings()
-        applyCustomizations(settings)
-        updateDisplay()
+        timerText.text = formatTimeShort(if (isCountdown) totalSeconds else 0)
+        timerText.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, fontSize.toFloat())
+        timerText.setTextColor(fontColor)
 
         val density = resources.displayMetrics.density
-        params = WindowManager.LayoutParams(
+        val bg = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(bgColor)
+            cornerRadius = 16 * density
+        }
+        view.background = bg
+        view.alpha = bgTransparency / 100f
+
+        val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -108,11 +152,39 @@ class FloatingTimerService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = 100
-            y = 200
+            x = 100 + (timers.size * 40)
+            y = 200 + (timers.size * 40)
         }
 
-        floatingView.setOnTouchListener(object : View.OnTouchListener {
+        val instance = TimerInstance(
+            id = timerId,
+            totalSeconds = totalSeconds,
+            elapsedSeconds = elapsedSeconds,
+            isCountdown = isCountdown,
+            isRunning = false,
+            isPaused = false,
+            view = view,
+            timerText = timerText,
+            paramX = params.x,
+            paramY = params.y,
+            fontSize = fontSize,
+            fontColor = fontColor,
+            bgColor = bgColor,
+            bgTransparency = bgTransparency
+        )
+
+        setupTouchHandler(instance, params)
+        timers[timerId] = instance
+
+        try {
+            windowManager.addView(view, params)
+        } catch (_: Exception) { }
+
+        startForegroundIfNeeded()
+    }
+
+    private fun setupTouchHandler(instance: TimerInstance, params: WindowManager.LayoutParams) {
+        instance.view.setOnTouchListener(object : View.OnTouchListener {
             private var initialX = 0
             private var initialY = 0
             private var initialTouchX = 0f
@@ -123,8 +195,8 @@ class FloatingTimerService : Service() {
             override fun onTouch(v: View?, event: MotionEvent?): Boolean {
                 when (event?.action) {
                     MotionEvent.ACTION_DOWN -> {
-                        initialX = params?.x ?: 0
-                        initialY = params?.y ?: 0
+                        initialX = params.x
+                        initialY = params.y
                         initialTouchX = event.rawX
                         initialTouchY = event.rawY
                         isDragging = false
@@ -133,9 +205,7 @@ class FloatingTimerService : Service() {
                         longPressTimer = java.util.Timer()
                         longPressTimer?.schedule(object : java.util.TimerTask() {
                             override fun run() {
-                                handler.post {
-                                    stopSelf()
-                                }
+                                handler.post { removeTimer(instance.id) }
                             }
                         }, 2000)
                     }
@@ -147,69 +217,145 @@ class FloatingTimerService : Service() {
                             longPressTimer?.cancel()
 
                             val displayMetrics = resources.displayMetrics
-                            val newX = (initialX + dx).coerceIn(0, displayMetrics.widthPixels - floatingView.width)
-                            val newY = (initialY + dy).coerceIn(0, displayMetrics.heightPixels - floatingView.height)
-
-                            params?.x = newX
-                            params?.y = newY
-                            windowManager.updateViewLayout(floatingView, params)
+                            params.x = (initialX + dx).coerceIn(0, displayMetrics.widthPixels - instance.view.width)
+                            params.y = (initialY + dy).coerceIn(0, displayMetrics.heightPixels - instance.view.height)
+                            windowManager.updateViewLayout(instance.view, params)
                         }
                     }
                     MotionEvent.ACTION_UP -> {
                         longPressTimer?.cancel()
                         val dy = event.rawY - initialTouchY
                         if (dy > 300) {
-                            stopSelf()
+                            removeTimer(instance.id)
                             return true
                         }
                         if (!isDragging) {
-                            toggleTimer()
+                            toggleTimer(instance)
                         }
                     }
                 }
                 return true
             }
         })
-
-        try {
-            windowManager.addView(floatingView, params)
-        } catch (_: Exception) { }
     }
 
-    private fun toggleTimer() {
-        if (!isRunning) {
-            isRunning = true
-            isPaused = false
-            statusText.text = getString(R.string.tap_to_start_stop)
-            val remaining = if (isCountdown) totalSeconds - elapsedSeconds else elapsedSeconds
-            timerText.text = formatTimeShort(remaining)
+    private fun toggleTimer(instance: TimerInstance) {
+        if (!instance.isRunning) {
+            instance.isRunning = true
+            instance.isPaused = false
             handler.post(tickRunnable)
         } else {
-            isRunning = false
-            isPaused = true
-            statusText.text = getString(R.string.tap_to_start_stop)
+            instance.isRunning = false
+            instance.isPaused = true
         }
     }
 
-    private fun updateDisplay() {
-        val displaySeconds = if (isCountdown) totalSeconds - elapsedSeconds else elapsedSeconds
-        timerText.text = formatTimeShort(displaySeconds)
+    private val tickRunnable = object : Runnable {
+        override fun run() {
+            var anyRunning = false
+            for (timer in timers.values) {
+                if (timer.isRunning) {
+                    anyRunning = true
+                    if (timer.isCountdown) {
+                        timer.elapsedSeconds++
+                        if (timer.elapsedSeconds >= timer.totalSeconds) {
+                            timer.elapsedSeconds = timer.totalSeconds
+                            timer.isRunning = false
+                        }
+                    } else {
+                        timer.elapsedSeconds++
+                    }
+                    updateDisplay(timer)
+                }
+            }
+            if (anyRunning) {
+                handler.postDelayed(this, 1000L)
+            } else {
+                updateNotification()
+            }
+        }
     }
 
-    private fun applyCustomizations(settings: AppSettings) {
-        try {
-            timerText.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, settings.fontSize.toFloat() + 8f)
-            timerText.setTextColor(settings.fontColor)
-            floatingView.setBackgroundColor(settings.backgroundColor)
-            floatingView.alpha = settings.transparency / 100f
-        } catch (_: Exception) { }
+    private fun updateDisplay(instance: TimerInstance) {
+        val display = if (instance.isCountdown)
+            instance.totalSeconds - instance.elapsedSeconds
+        else
+            instance.elapsedSeconds
+        instance.timerText.text = formatTimeShort(display)
+    }
+
+    private fun removeTimer(timerId: String) {
+        val instance = timers.remove(timerId) ?: return
+        handler.removeCallbacksAndMessages(null)
+        if (instance.view.isAttachedToWindow) {
+            try { windowManager.removeView(instance.view) } catch (_: Exception) { }
+        }
+        if (timers.isEmpty()) {
+            stopSelf()
+        } else {
+            if (timers.values.any { it.isRunning }) {
+                handler.post(tickRunnable)
+            }
+            updateNotification()
+        }
+    }
+
+    private fun handleRemoveTimer(intent: Intent) {
+        val timerId = intent.getStringExtra("timer_id") ?: return
+        removeTimer(timerId)
+    }
+
+    private fun handleStopAll() {
+        for (instance in timers.values) {
+            if (instance.view.isAttachedToWindow) {
+                try { windowManager.removeView(instance.view) } catch (_: Exception) { }
+            }
+        }
+        timers.clear()
+        handler.removeCallbacksAndMessages(null)
+        stopSelf()
+    }
+
+    private fun startForegroundIfNeeded() {
+        if (!isForeground) {
+            isForeground = true
+            startForeground(notificationId, buildNotification())
+        } else {
+            updateNotification()
+        }
+    }
+
+    private fun buildNotification(): Notification {
+        val count = timers.size
+        val title = if (count == 0) getString(R.string.floating_timer_active)
+            else "$count مؤقتات نشطة"
+        val running = timers.values.count { it.isRunning }
+        val text = if (running == 0) "متوقف" else "$running مؤقت يعمل"
+
+        return NotificationCompat.Builder(this, AlarmApp.CHANNEL_FLOATING_TIMER)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+    }
+
+    private fun updateNotification() {
+        val nm = getSystemService(android.app.NotificationManager::class.java)
+        nm?.notify(notificationId, buildNotification())
     }
 
     override fun onDestroy() {
-        handler.removeCallbacks(tickRunnable)
-        if (::floatingView.isInitialized && floatingView.isAttachedToWindow) {
-            try { windowManager.removeView(floatingView) } catch (_: Exception) { }
+        handler.removeCallbacksAndMessages(null)
+        for (timer in timers.values) {
+            if (timer.view.isAttachedToWindow) {
+                try { windowManager.removeView(timer.view) } catch (_: Exception) { }
+            }
         }
+        timers.clear()
+        instance = null
+        isForeground = false
         super.onDestroy()
     }
 

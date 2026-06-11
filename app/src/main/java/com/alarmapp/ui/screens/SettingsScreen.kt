@@ -33,84 +33,9 @@ fun SettingsScreen() {
     ) {
         item {
             Text(
-                "التخصيص",
+                "الإعدادات",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
-            )
-        }
-
-        item {
-            Text("حجم الخط", style = MaterialTheme.typography.titleMedium)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                val sizes = listOf("صغير" to 12, "متوسط" to 16, "كبير" to 20, "كبير جداً" to 24)
-                sizes.forEach { (label, size) ->
-                    FilterChip(
-                        selected = settings.fontSize == size,
-                        onClick = { save(settings.copy(fontSize = size)) },
-                        label = { Text(label) }
-                    )
-                }
-            }
-        }
-
-        item {
-            Text("لون الخط", style = MaterialTheme.typography.titleMedium)
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                val colors = listOf(
-                    "أبيض" to 0xFFFFFFFF.toInt(),
-                    "أحمر" to 0xFFD93030.toInt(),
-                    "أخضر" to 0xFF34A853.toInt(),
-                    "أزرق" to 0xFF1A73E8.toInt(),
-                    "أسود" to 0xFF000000.toInt()
-                )
-                colors.forEach { (label, color) ->
-                    ColorButton(
-                        color = color,
-                        label = label,
-                        isSelected = settings.fontColor == color,
-                        onClick = { save(settings.copy(fontColor = color)) }
-                    )
-                }
-            }
-        }
-
-        item {
-            Text("لون الخلفية", style = MaterialTheme.typography.titleMedium)
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                val bgColors = listOf(
-                    "أسود" to 0xCC000000.toInt(),
-                    "أزرق" to 0xCC1A73E8.toInt(),
-                    "أخضر" to 0xCC34A853.toInt(),
-                    "أحمر" to 0xCCD93030.toInt(),
-                    "رمادي" to 0xCC444444.toInt()
-                )
-                bgColors.forEach { (label, color) ->
-                    ColorButton(
-                        color = color,
-                        label = label,
-                        isSelected = settings.backgroundColor == color,
-                        onClick = { save(settings.copy(backgroundColor = color)) }
-                    )
-                }
-            }
-        }
-
-        item {
-            Text("الشفافية", style = MaterialTheme.typography.titleMedium)
-            Text("${settings.transparency}%", style = MaterialTheme.typography.bodyLarge)
-            Slider(
-                value = settings.transparency.toFloat(),
-                onValueChange = { save(settings.copy(transparency = it.toInt())) },
-                valueRange = 10f..100f,
-                steps = 8
             )
         }
 
@@ -147,16 +72,12 @@ fun SettingsScreen() {
         }
 
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("المؤقت العائم", style = MaterialTheme.typography.titleMedium)
-                Switch(
-                    checked = settings.floatingTimerEnabled,
-                    onCheckedChange = { save(settings.copy(floatingTimerEnabled = it)) }
-                )
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("تخصيص المؤقت العائم", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
+                    Text("تم نقل تخصيص حجم الخط ولون الخط ولون الخلفية والشفافية إلى شاشة المؤقت", style = MaterialTheme.typography.bodyMedium)
+                }
             }
         }
 
