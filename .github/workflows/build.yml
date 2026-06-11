@@ -13,27 +13,23 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Show ANDROID_HOME
-        run: |
-          echo "ANDROID_HOME=/usr/local/lib/android/sdk"
-          echo "---sdk contents---"
-          ls -la /usr/local/lib/android/sdk/
-          echo "---platforms---"
-          ls -la /usr/local/lib/android/sdk/platforms/
-          echo "---build-tools---"
-          ls -la /usr/local/lib/android/sdk/build-tools/
-          echo "---gradle version---"
-          gradle --version
-
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.11.1
 
       - name: Build Debug APK
-        run: gradle assembleDebug --no-daemon --stacktrace 2>&1
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee /tmp/gradle.log
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
           ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
+      - name: Show Gradle error output
+        if: failure()
+        shell: bash
+        run: tail -200 /tmp/gradle.log
 
       - name: Locate APK
         if: always()
