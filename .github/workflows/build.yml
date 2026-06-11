@@ -13,23 +13,31 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK
+      - name: Show ANDROID_HOME
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-          ls $ANDROID_HOME/platforms/
-          ls $ANDROID_HOME/build-tools/
+          echo "ANDROID_HOME=/usr/local/lib/android/sdk"
+          echo "---sdk contents---"
+          ls -la /usr/local/lib/android/sdk/
+          echo "---platforms---"
+          ls -la /usr/local/lib/android/sdk/platforms/
+          echo "---build-tools---"
+          ls -la /usr/local/lib/android/sdk/build-tools/
+          echo "---gradle version---"
           gradle --version
 
-      - name: Build
-        run: |
-          gradle assembleDebug --no-daemon --stacktrace
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.11.1
+
+      - name: Build Debug APK
+        run: gradle assembleDebug --no-daemon --stacktrace 2>&1
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
           ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
-      - name: Locate APKs
-        run: find /home -name "*.apk" -type f 2>/dev/null; find / -name "app-debug.apk" -type f 2>/dev/null || true
+      - name: Locate APK
+        if: always()
+        run: find / -name "*.apk" -type f 2>/dev/null || echo "No APK found"
 
       - name: Upload APK
         if: success()
