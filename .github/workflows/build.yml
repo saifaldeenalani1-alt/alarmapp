@@ -12,24 +12,28 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-      - uses: android-actions/setup-android@v3
 
-      - name: Install Gradle 8.11.1
+      - name: Setup Android SDK
         run: |
-          wget -q https://services.gradle.org/distributions/gradle-8.11.1-bin.zip
-          sudo unzip -q gradle-8.11.1-bin.zip -d /opt
-          sudo ln -sf /opt/gradle-8.11.1/bin/gradle /usr/local/bin/gradle
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          ls $ANDROID_HOME/platforms/
+          ls $ANDROID_HOME/build-tools/
           gradle --version
 
-      - name: Build with Gradle
-        run: gradle assembleDebug --no-daemon --stacktrace
+      - name: Build
+        run: |
+          gradle assembleDebug --no-daemon --stacktrace
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
-      - name: List APKs
-        run: find app/build -name "*.apk" -o -name "*.aab" 2>/dev/null || echo "No APK found"
+      - name: Locate APKs
+        run: find /home -name "*.apk" -type f 2>/dev/null; find / -name "app-debug.apk" -type f 2>/dev/null || true
 
-      - name: Upload
+      - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: AlarmApp-Debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: "**/outputs/apk/debug/*.apk"
