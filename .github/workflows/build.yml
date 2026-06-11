@@ -22,19 +22,30 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Accept licenses silently
-        run: yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses 2>/dev/null || true
+      - name: Debug SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls -la $ANDROID_HOME/ || echo "No ANDROID_HOME"
+          echo "SDK_ROOT=$SDK_ROOT"
+          ls -la /usr/local/lib/android/sdk/ 2>/dev/null || echo "No default SDK path"
+
+      - name: Accept licenses
+        run: |
+          SDK_PATH="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          yes | $SDK_PATH/cmdline-tools/latest/bin/sdkmanager --sdk_root=$SDK_PATH --licenses 2>/dev/null || true
+          yes | $SDK_PATH/tools/bin/sdkmanager --sdk_root=$SDK_PATH --licenses 2>/dev/null || true
 
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Create local.properties
-        run: echo "sdk.dir=$ANDROID_HOME" > local.properties
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Build with Gradle
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tail -200
 
       - name: Upload APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: AlarmApp-Debug
