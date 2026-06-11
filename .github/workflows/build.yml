@@ -13,40 +13,14 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: 8.11.1
-
-      - name: Diagnose
-        shell: bash
-        continue-on-error: true
-        run: |
-          echo '### SDK' >> $GITHUB_STEP_SUMMARY
-          ls -la /usr/local/lib/android/sdk/platforms/ >> $GITHUB_STEP_SUMMARY
-          ls -la /usr/local/lib/android/sdk/build-tools/ >> $GITHUB_STEP_SUMMARY
-          echo '### Gradle projects' >> $GITHUB_STEP_SUMMARY
-          gradle projects --no-daemon >> $GITHUB_STEP_SUMMARY 2>&1
-        env:
-          ANDROID_HOME: /usr/local/lib/android/sdk
-          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      - name: Generate Gradle wrapper (8.11.1)
+        run: gradle wrapper --gradle-version=8.11.1
 
       - name: Build
-        shell: bash
-        run: |
-          set -o pipefail
-          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee /tmp/gradle.log
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
           ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-
-      - name: Error details
-        if: failure()
-        shell: bash
-        run: |
-          echo '### Build Error' >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          tail -100 /tmp/gradle.log >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload APK
         if: success()
