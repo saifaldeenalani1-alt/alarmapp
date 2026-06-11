@@ -24,16 +24,33 @@ jobs:
 
       - name: Build
         id: build
-        continue-on-error: true
-        run: ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+        run: |
+          set -o pipefail
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AlarmApp-Debug
+          path: "**/outputs/apk/debug/*.apk"
 
       - name: Upload build logs
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: build-logs-${{ github.run_number }}
           path: build.log
 
-      - name: Fail if build failed
-        if: steps.build.outcome == 'failure'
-        run: exit 1
+      - name: Show build error log
+        if: failure()
+        shell: bash
+        run: |
+          echo "## Build Log" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          curl -sL -H "Authorization: token ${{ github.token }}" \
+            "${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/logs" \
+            -o /tmp/logs.zip 2>&1
+          unzip -p /tmp/logs.zip 2>/dev/null | tail -200 >> $GITHUB_STEP_SUMMARY || echo "unzip failed" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "done"
