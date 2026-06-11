@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,9 +26,22 @@ fun DayCounterScreen() {
     val context = LocalContext.current
     val prefs = remember { PreferencesManager(context) }
     var events by remember { mutableStateOf(prefs.getEvents()) }
-    var showAddDialog by remember { mutableStateOf(false) }
+    var showDialog by remember { mutableStateOf(false) }
+    var editingEvent by remember { mutableStateOf<DayCounterEvent?>(null) }
 
     fun refresh() { events = prefs.getEvents() }
+
+    fun updateWidgets() {
+        val ids = AppWidgetManager.getInstance(context)
+            .getAppWidgetIds(android.content.ComponentName(context, com.alarmapp.widget.DayCounterWidget::class.java))
+        if (ids.isNotEmpty()) {
+            val updateIntent = android.content.Intent(context, com.alarmapp.widget.DayCounterWidget::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+            }
+            context.sendBroadcast(updateIntent)
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (events.isEmpty()) {
@@ -47,6 +61,7 @@ fun DayCounterScreen() {
                 items(events, key = { it.id }) { event ->
                     EventCard(
                         event = event,
+                        onEdit = { editingEvent = it; showDialog = true },
                         onDelete = {
                             prefs.deleteEvent(event.id)
                             refresh()
@@ -57,7 +72,7 @@ fun DayCounterScreen() {
         }
 
         FloatingActionButton(
-            onClick = { showAddDialog = true },
+            onClick = { editingEvent = null; showDialog = true },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp)
@@ -66,29 +81,23 @@ fun DayCounterScreen() {
         }
     }
 
-    if (showAddDialog) {
+    if (showDialog) {
         AddEventDialog(
-            onDismiss = { showAddDialog = false },
+            event = editingEvent,
+            onDismiss = { showDialog = false; editingEvent = null },
             onSave = { event ->
                 prefs.saveEvent(event)
                 refresh()
-                showAddDialog = false
-                val ids = AppWidgetManager.getInstance(context)
-                    .getAppWidgetIds(android.content.ComponentName(context, com.alarmapp.widget.DayCounterWidget::class.java))
-                if (ids.isNotEmpty()) {
-                    val updateIntent = android.content.Intent(context, com.alarmapp.widget.DayCounterWidget::class.java).apply {
-                        action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
-                    }
-                    context.sendBroadcast(updateIntent)
-                }
+                showDialog = false
+                editingEvent = null
+                updateWidgets()
             }
         )
     }
 }
 
 @Composable
-fun EventCard(event: DayCounterEvent, onDelete: () -> Unit) {
+fun EventCard(event: DayCounterEvent, onEdit: () -> Unit, onDelete: () -> Unit) {
     val now = Calendar.getInstance()
     val eventCal = Calendar.getInstance().apply { timeInMillis = event.date }
     val diffDays: Long
@@ -136,6 +145,9 @@ fun EventCard(event: DayCounterEvent, onDelete: () -> Unit) {
                 )
             }
 
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Default.Edit, "تعديل", tint = MaterialTheme.colorScheme.primary)
+            }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Default.Delete, "حذف", tint = MaterialTheme.colorScheme.error)
             }
@@ -144,18 +156,19 @@ fun EventCard(event: DayCounterEvent, onDelete: () -> Unit) {
 }
 
 @Composable
-fun AddEventDialog(onDismiss: () -> Unit, onSave: (DayCounterEvent) -> Unit) {
+fun AddEventDialog(event: DayCounterEvent? = null, onDismiss: () -> Unit, onSave: (DayCounterEvent) -> Unit) {
     val context = LocalContext.current
-    var name by remember { mutableStateOf("") }
-    var selectedDateMillis by remember { mutableStateOf(System.currentTimeMillis()) }
-    var isCountdown by remember { mutableStateOf(true) }
-    var dateText by remember { mutableStateOf(formatDateFull(System.currentTimeMillis())) }
-    var widgetTextColor by remember { mutableStateOf(0xFFFFFFFF.toInt()) }
-    var widgetBgColor by remember { mutableStateOf(0xCC000000.toInt()) }
+    var name by remember { mutableStateOf(event?.name ?: "") }
+    var selectedDateMillis by remember { mutableStateOf(event?.date ?: System.currentTimeMillis()) }
+    var isCountdown by remember { mutableStateOf(event?.isCountdown ?: true) }
+    var dateText by remember { mutableStateOf(formatDateFull(event?.date ?: System.currentTimeMillis())) }
+    var widgetTextColor by remember { mutableStateOf(event?.widgetTextColor ?: 0xFFFFFFFF.toInt()) }
+    var widgetBgColor by remember { mutableStateOf(event?.widgetBgColor ?: 0xCC000000.toInt()) }
+    val isEdit = event != null
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("إضافة مناسبة") },
+        title = { Text(if (isEdit) "تعديل المناسبة" else "إضافة مناسبة") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
@@ -222,15 +235,17 @@ fun AddEventDialog(onDismiss: () -> Unit, onSave: (DayCounterEvent) -> Unit) {
                     if (name.isBlank()) return@Button
                     onSave(
                         DayCounterEvent(
+                            id = event?.id ?: java.util.UUID.randomUUID().toString(),
                             name = name,
                             date = selectedDateMillis,
                             isCountdown = isCountdown,
+                            widgetId = event?.widgetId ?: -1,
                             widgetTextColor = widgetTextColor,
                             widgetBgColor = widgetBgColor
                         )
                     )
                 }
-            ) { Text("حفظ") }
+            ) { Text(if (isEdit) "حفظ التعديل" else "حفظ") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("إلغاء") }
