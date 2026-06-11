@@ -1,0 +1,2 @@
+-keep class com.alarmapp.model.** { *; }
+-keep class com.alarmapp.data.** { *; }
