@@ -39,8 +39,4 @@ jobs:
         if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          gh issue create \
-            --title "Build #${{ github.run_number }} - $(date)" \
-            --label "build-failure" \
-            --body "$(cat build.log | head -c 60000)"
+        run: gh issue create --title "Build failed #${{ github.run_number }}" --label build-failure --body-file build.log
