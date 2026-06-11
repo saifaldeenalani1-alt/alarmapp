@@ -17,34 +17,39 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Make wrapper executable
-        run: chmod +x gradlew
+      - name: Fix wrapper
+        run: |
+          chmod +x gradlew
+          if command -v gradle &>/dev/null; then
+            gradle wrapper --gradle-version=8.11.1
+          fi
 
-      - name: Build APK
+      - name: Verify
+        run: |
+          ./gradlew --version 2>&1 | head -5
+          echo "SDK: $ANDROID_SDK_ROOT"
+          ls "$ANDROID_SDK_ROOT/platforms/" 2>/dev/null
+          cat local.properties 2>/dev/null
+
+      - name: Build
         run: |
           ./gradlew assembleDebug --no-daemon 2>&1 | tee gradle.log
           exit ${PIPESTATUS[0]}
 
-      - name: Show full Gradle output
-        if: failure() || success()
-        run: |
-          echo "=== FULL GRADLE OUTPUT ==="
-          cat gradle.log
-          echo "=== OUTPUT FILES ==="
-          find . -path "*/build/outputs" -type d
-          find . -name "*.apk" -type f
-          find . -name "*.aab" -type f
+      - name: Show log
+        if: always()
+        run: cat gradle.log
 
-      - name: Upload log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gradle-log
-          path: gradle.log
-
-      - name: Upload APK on success
+      - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: AlarmApp-Debug
           path: app/build/outputs/apk/debug/*.apk
+
+      - name: Upload log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-log
+          path: gradle.log
