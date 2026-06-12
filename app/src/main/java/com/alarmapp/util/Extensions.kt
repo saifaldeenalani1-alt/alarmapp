@@ -17,6 +17,7 @@ object AlarmScheduler {
 
     fun scheduleAlarm(context: Context, alarm: Alarm) {
         if (!alarm.isEnabled) return
+        cancelAlarm(context, alarm)
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(context, AlarmReceiver::class.java).apply {
             putExtra("alarm_id", alarm.id)
