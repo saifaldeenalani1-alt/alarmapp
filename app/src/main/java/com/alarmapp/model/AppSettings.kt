@@ -5,5 +5,6 @@ data class AppSettings(
     val fontColor: Int = 0xFFFFFFFF.toInt(),
     val backgroundColor: Int = 0xCC000000.toInt(),
     val transparency: Int = 80,
-    val vibrateEnabled: Boolean = true
+    val vibrateEnabled: Boolean = true,
+    val isDarkTheme: Boolean = false
 )

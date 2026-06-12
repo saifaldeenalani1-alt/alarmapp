@@ -155,6 +155,22 @@ fun EventCard(event: DayCounterEvent, onEdit: () -> Unit, onDelete: () -> Unit) 
     }
 }
 
+private val colorOptions = listOf(
+    "أبيض" to 0xFFFFFFFF.toInt(), "أحمر" to 0xFFD93030.toInt(),
+    "أخضر" to 0xFF34A853.toInt(), "أزرق" to 0xFF1A73E8.toInt(),
+    "أسود" to 0xFF000000.toInt(), "أصفر" to 0xFFFFD600.toInt(),
+    "برتقالي" to 0xFFFF6D00.toInt(), "بنفسجي" to 0xFFAA00FF.toInt(),
+    "وردي" to 0xFFFF4081.toInt(), "سماوي" to 0xFF00BCD4.toInt()
+)
+
+private val bgColorOptions = listOf(
+    "أسود" to 0xCC000000.toInt(), "أزرق" to 0xCC1A73E8.toInt(),
+    "أخضر" to 0xCC34A853.toInt(), "أحمر" to 0xCCD93030.toInt(),
+    "رمادي" to 0xCC444444.toInt(), "أصفر" to 0xCCFFD600.toInt(),
+    "برتقالي" to 0xCCFF6D00.toInt(), "بنفسجي" to 0xCCAA00FF.toInt(),
+    "وردي" to 0xCCFF4081.toInt(), "سماوي" to 0xCC00BCD4.toInt()
+)
+
 @Composable
 fun AddEventDialog(event: DayCounterEvent? = null, onDismiss: () -> Unit, onSave: (DayCounterEvent) -> Unit) {
     val context = LocalContext.current
@@ -201,32 +217,31 @@ fun AddEventDialog(event: DayCounterEvent? = null, onDismiss: () -> Unit, onSave
                     Text(dateText)
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("تنازلي (متبقي)", modifier = Modifier.weight(1f))
-                    Switch(checked = isCountdown, onCheckedChange = { isCountdown = it })
-                    Text("تصاعدي (مضى)")
+                Text("نوع العد", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    SegmentedButton(
+                        selected = isCountdown,
+                        onClick = { isCountdown = true },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                    ) { Text("تنازلي (متبقي)") }
+                    SegmentedButton(
+                        selected = !isCountdown,
+                        onClick = { isCountdown = false },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                    ) { Text("تصاعدي (مضى)") }
                 }
 
                 Text("تخصيص الـ widget", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 Text("لون الخط", style = MaterialTheme.typography.bodySmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(
-                        "أبيض" to 0xFFFFFFFF.toInt(), "أحمر" to 0xFFD93030.toInt(),
-                        "أخضر" to 0xFF34A853.toInt(), "أزرق" to 0xFF1A73E8.toInt(),
-                        "أسود" to 0xFF000000.toInt()
-                    ).forEach { (label, color) ->
+                    colorOptions.forEach { (label, color) ->
                         ColorButton(color = color, label = label, isSelected = widgetTextColor == color, onClick = { widgetTextColor = color })
                     }
                 }
 
                 Text("لون الخلفية", style = MaterialTheme.typography.bodySmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(
-                        "أسود" to 0xCC000000.toInt(), "أزرق" to 0xCC1A73E8.toInt(),
-                        "أخضر" to 0xCC34A853.toInt(), "أحمر" to 0xCCD93030.toInt(),
-                        "رمادي" to 0xCC444444.toInt(), "أصفر" to 0xCCFFD600.toInt(),
-                        "برتقالي" to 0xCCFF6D00.toInt(), "بنفسجي" to 0xCCAA00FF.toInt()
-                    ).forEach { (label, color) ->
+                    bgColorOptions.forEach { (label, color) ->
                         ColorButton(color = color, label = label, isSelected = widgetBgColor == color, onClick = { widgetBgColor = color })
                     }
                 }

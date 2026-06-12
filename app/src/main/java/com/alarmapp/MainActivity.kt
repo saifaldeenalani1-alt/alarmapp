@@ -12,8 +12,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import com.alarmapp.data.PreferencesManager
 import com.alarmapp.ui.screens.MainScreen
 import com.alarmapp.ui.theme.AlarmAppTheme
 
@@ -31,10 +33,23 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         requestRequiredPermissions()
         requestOverlayPermission()
+
+        val prefs = PreferencesManager(this)
+        val initialSettings = prefs.getSettings()
+
         setContent {
-            AlarmAppTheme {
+            var isDarkTheme by remember { mutableStateOf(initialSettings.isDarkTheme) }
+
+            AlarmAppTheme(darkTheme = isDarkTheme) {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    MainScreen()
+                    MainScreen(
+                        isDarkTheme = isDarkTheme,
+                        onThemeChanged = { dark ->
+                            isDarkTheme = dark
+                            val s = prefs.getSettings()
+                            prefs.saveSettings(s.copy(isDarkTheme = dark))
+                        }
+                    )
                 }
             }
         }

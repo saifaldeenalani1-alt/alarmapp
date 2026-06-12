@@ -1,5 +1,6 @@
 package com.alarmapp.service
 
+import android.app.AlertDialog
 import android.app.Notification
 import android.app.Service
 import android.content.Intent
@@ -25,6 +26,7 @@ class FloatingTimerService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var notificationId = 100
     private var isForeground = false
+    private var tickScheduled = false
 
     private data class TimerInstance(
         val id: String,
@@ -191,6 +193,12 @@ class FloatingTimerService : Service() {
             private var initialTouchX = 0f
             private var initialTouchY = 0f
             private var isDragging = false
+            private var longPressTriggered = false
+            private val longPressHandler = Handler(Looper.getMainLooper())
+            private val longPressRunnable = Runnable {
+                longPressTriggered = true
+                showDeleteConfirmation(instance)
+            }
 
             override fun onTouch(v: View?, event: MotionEvent?): Boolean {
                 when (event?.action) {
@@ -200,12 +208,15 @@ class FloatingTimerService : Service() {
                         initialTouchX = event.rawX
                         initialTouchY = event.rawY
                         isDragging = false
+                        longPressTriggered = false
+                        longPressHandler.postDelayed(longPressRunnable, 800L)
                     }
                     MotionEvent.ACTION_MOVE -> {
                         val dx = (event.rawX - initialTouchX).toInt()
                         val dy = (event.rawY - initialTouchY).toInt()
                         if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
                             isDragging = true
+                            longPressHandler.removeCallbacks(longPressRunnable)
                             val displayMetrics = resources.displayMetrics
                             params.x = (initialX + dx).coerceIn(0, displayMetrics.widthPixels - instance.view.width)
                             params.y = (initialY + dy).coerceIn(0, displayMetrics.heightPixels - instance.view.height)
@@ -213,14 +224,32 @@ class FloatingTimerService : Service() {
                         }
                     }
                     MotionEvent.ACTION_UP -> {
-                        if (!isDragging) {
+                        longPressHandler.removeCallbacks(longPressRunnable)
+                        if (!isDragging && !longPressTriggered) {
                             toggleTimer(instance)
                         }
+                    }
+                    MotionEvent.ACTION_CANCEL -> {
+                        longPressHandler.removeCallbacks(longPressRunnable)
                     }
                 }
                 return true
             }
         })
+    }
+
+    private fun showDeleteConfirmation(instance: TimerInstance) {
+        val dialog = AlertDialog.Builder(this).apply {
+            setTitle("حذف المؤقت")
+            setMessage("هل تريد حذف هذا المؤقت؟")
+            setPositiveButton("حذف") { _, _ ->
+                removeTimer(instance.id)
+            }
+            setNegativeButton("إلغاء", null)
+        }.create()
+
+        dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+        dialog.show()
     }
 
     private fun toggleTimer(instance: TimerInstance) {
@@ -232,7 +261,7 @@ class FloatingTimerService : Service() {
             instance.isPaused = false
             updateViewAppearance(instance)
             updateDisplay(instance)
-            handler.post(tickRunnable)
+            scheduleTick()
         } else {
             instance.isRunning = false
             instance.isPaused = true
@@ -263,8 +292,15 @@ class FloatingTimerService : Service() {
         }
     }
 
+    private fun scheduleTick() {
+        if (tickScheduled) return
+        tickScheduled = true
+        handler.post(tickRunnable)
+    }
+
     private val tickRunnable = object : Runnable {
         override fun run() {
+            tickScheduled = false
             var anyRunning = false
             for (timer in timers.values) {
                 if (timer.isRunning) {
@@ -285,6 +321,7 @@ class FloatingTimerService : Service() {
             }
             if (anyRunning) {
                 handler.postDelayed(this, 1000L)
+                tickScheduled = true
             } else {
                 updateNotification()
             }
@@ -302,11 +339,19 @@ class FloatingTimerService : Service() {
         } else {
             instance.timerText.text = formatTimeShort(display)
         }
+
+        if (instance.isCountdown && instance.isRunning && display <= 10) {
+            val flashColor = (if ((display % 2) == 0L) 0xFFFF0000.toInt() else instance.fontColor)
+            instance.timerText.setTextColor(flashColor)
+        } else {
+            instance.timerText.setTextColor(instance.fontColor)
+        }
     }
 
     private fun removeTimer(timerId: String) {
         val instance = timers.remove(timerId) ?: return
         handler.removeCallbacksAndMessages(null)
+        tickScheduled = false
         if (instance.view.isAttachedToWindow) {
             try { windowManager.removeView(instance.view) } catch (_: Exception) { }
         }
@@ -314,7 +359,7 @@ class FloatingTimerService : Service() {
             stopSelf()
         } else {
             if (timers.values.any { it.isRunning }) {
-                handler.post(tickRunnable)
+                scheduleTick()
             }
             updateNotification()
         }
@@ -333,6 +378,7 @@ class FloatingTimerService : Service() {
         }
         timers.clear()
         handler.removeCallbacksAndMessages(null)
+        tickScheduled = false
         stopSelf()
     }
 
@@ -368,6 +414,7 @@ class FloatingTimerService : Service() {
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
+        tickScheduled = false
         for (timer in timers.values) {
             if (timer.view.isAttachedToWindow) {
                 try { windowManager.removeView(timer.view) } catch (_: Exception) { }

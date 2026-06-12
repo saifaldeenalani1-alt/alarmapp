@@ -1,13 +1,10 @@
 package com.alarmapp.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
@@ -17,9 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,9 +26,13 @@ import java.util.UUID
 @Composable
 fun TimerScreen() {
     val context = LocalContext.current
-    var hours by remember { mutableStateOf("") }
-    var minutes by remember { mutableStateOf("") }
-    var seconds by remember { mutableStateOf("") }
+
+    val hourOptions = (0..23).map { it.toString().padStart(2, '0') }
+    val minSecOptions = (0..59).map { it.toString().padStart(2, '0') }
+
+    var selectedHours by remember { mutableStateOf("00") }
+    var selectedMinutes by remember { mutableStateOf("01") }
+    var selectedSeconds by remember { mutableStateOf("00") }
     var isCountdown by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf("") }
 
@@ -86,12 +85,12 @@ fun TimerScreen() {
 
         item {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TimeInputField("ساعات", hours) { hours = it }
-                TimeInputField("دقائق", minutes) { minutes = it }
-                TimeInputField("ثوان", seconds) { seconds = it }
+                DropdownTimeSelector("ساعات", hourOptions, selectedHours) { selectedHours = it }
+                DropdownTimeSelector("دقائق", minSecOptions, selectedMinutes) { selectedMinutes = it }
+                DropdownTimeSelector("ثوان", minSecOptions, selectedSeconds) { selectedSeconds = it }
             }
         }
 
@@ -121,13 +120,7 @@ fun TimerScreen() {
                     Spacer(Modifier.height(12.dp))
                     Text("لون الخط", style = MaterialTheme.typography.bodyMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf(
-                            "أبيض" to 0xFFFFFFFF.toInt(), "أحمر" to 0xFFD93030.toInt(),
-                            "أخضر" to 0xFF34A853.toInt(), "أزرق" to 0xFF1A73E8.toInt(),
-                            "أسود" to 0xFF000000.toInt(), "أصفر" to 0xFFFFD600.toInt(),
-                            "برتقالي" to 0xFFFF6D00.toInt(), "بنفسجي" to 0xFFAA00FF.toInt(),
-                            "وردي" to 0xFFFF4081.toInt(), "سماوي" to 0xFF00BCD4.toInt()
-                        ).forEach { (label, color) ->
+                        colorOptions.forEach { (label, color) ->
                             ColorButton(color = color, label = label, isSelected = fontColor == color, onClick = { fontColor = color })
                         }
                     }
@@ -135,13 +128,7 @@ fun TimerScreen() {
                     Spacer(Modifier.height(12.dp))
                     Text("لون الخلفية", style = MaterialTheme.typography.bodyMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf(
-                            "أسود" to 0xCC000000.toInt(), "أزرق" to 0xCC1A73E8.toInt(),
-                            "أخضر" to 0xCC34A853.toInt(), "أحمر" to 0xCCD93030.toInt(),
-                            "رمادي" to 0xCC444444.toInt(), "أصفر" to 0xCCFFD600.toInt(),
-                            "برتقالي" to 0xCCFF6D00.toInt(), "بنفسجي" to 0xCCAA00FF.toInt(),
-                            "وردي" to 0xCCFF4081.toInt(), "سماوي" to 0xCC00BCD4.toInt()
-                        ).forEach { (label, color) ->
+                        bgColorOptions.forEach { (label, color) ->
                             ColorButton(color = color, label = label, isSelected = bgColor == color, onClick = { bgColor = color })
                         }
                     }
@@ -178,7 +165,7 @@ fun TimerScreen() {
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = formatTimeShort((hours.toIntOrNull() ?: 0) * 3600L + (minutes.toIntOrNull() ?: 0) * 60L + (seconds.toIntOrNull() ?: 0)),
+                            text = formatTimeShort(selectedHours.toInt() * 3600L + selectedMinutes.toInt() * 60L + selectedSeconds.toInt()),
                             fontSize = fontSize.sp,
                             color = Color(fontColor),
                             fontWeight = FontWeight.Bold
@@ -191,10 +178,7 @@ fun TimerScreen() {
         item {
             Button(
                 onClick = {
-                    val h = hours.toIntOrNull() ?: 0
-                    val m = minutes.toIntOrNull() ?: 0
-                    val s = seconds.toIntOrNull() ?: 0
-                    val total = (h * 3600L) + (m * 60L) + s
+                    val total = (selectedHours.toInt() * 3600L) + (selectedMinutes.toInt() * 60L) + selectedSeconds.toInt()
                     if (total <= 0) {
                         errorMessage = "الرجاء إدخال وقت صحيح"
                         return@Button
@@ -275,7 +259,7 @@ fun TimerScreen() {
                     Spacer(Modifier.height(8.dp))
                     Text("• اضغط على المؤقت للبدء/الإيقاف")
                     Text("• اسحب المؤقت لتحريكه")
-                    Text("• اضغط على إيقاف لحذف المؤقت")
+                    Text("• اضغط مطولاً لحذف المؤقت")
                     Text("• يمكن تشغيل أكثر من مؤقت في نفس الوقت")
                 }
             }
@@ -283,20 +267,52 @@ fun TimerScreen() {
     }
 }
 
+private val colorOptions = listOf(
+    "أبيض" to 0xFFFFFFFF.toInt(), "أحمر" to 0xFFD93030.toInt(),
+    "أخضر" to 0xFF34A853.toInt(), "أزرق" to 0xFF1A73E8.toInt(),
+    "أسود" to 0xFF000000.toInt(), "أصفر" to 0xFFFFD600.toInt(),
+    "برتقالي" to 0xFFFF6D00.toInt(), "بنفسجي" to 0xFFAA00FF.toInt(),
+    "وردي" to 0xFFFF4081.toInt(), "سماوي" to 0xFF00BCD4.toInt()
+)
+
+private val bgColorOptions = listOf(
+    "أسود" to 0xCC000000.toInt(), "أزرق" to 0xCC1A73E8.toInt(),
+    "أخضر" to 0xCC34A853.toInt(), "أحمر" to 0xCCD93030.toInt(),
+    "رمادي" to 0xCC444444.toInt(), "أصفر" to 0xCCFFD600.toInt(),
+    "برتقالي" to 0xCCFF6D00.toInt(), "بنفسجي" to 0xCCAA00FF.toInt(),
+    "وردي" to 0xCCFF4081.toInt(), "سماوي" to 0xCC00BCD4.toInt()
+)
+
 data class TimerInfo(val id: String, val displaySeconds: Long, val isRunning: Boolean)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TimeInputField(fieldLabel: String, value: String, onValueChange: (String) -> Unit) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = { input: String ->
-            val filtered = input.filter { it.isDigit() }
-            if (filtered.length <= 2) onValueChange(filtered)
-        },
-        label = { Text(fieldLabel) },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        modifier = Modifier.width(90.dp),
-        textStyle = TextStyle(textAlign = TextAlign.Center),
-        singleLine = true
-    )
+fun DropdownTimeSelector(label: String, options: List<String>, selected: String, onSelect: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = selected,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier = Modifier
+                .menuAnchor()
+                .width(100.dp),
+            textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
+            singleLine = true
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { opt ->
+                DropdownMenuItem(
+                    text = { Text(opt, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
+                    onClick = {
+                        onSelect(opt)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
 }

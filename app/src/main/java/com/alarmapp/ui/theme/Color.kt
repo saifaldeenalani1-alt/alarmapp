@@ -14,3 +14,8 @@ val OnSurface = Color(0xFF202124)
 val AlarmRed = Color(0xFFD93030)
 val TimerGreen = Color(0xFF34A853)
 val DaysBlue = Color(0xFF4285F4)
+
+val DarkBackground = Color(0xFF121212)
+val DarkSurface = Color(0xFF1E1E1E)
+val OnDarkBackground = Color(0xFFE3E3E3)
+val OnDarkSurface = Color(0xFFE3E3E3)

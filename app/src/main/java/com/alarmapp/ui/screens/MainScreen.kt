@@ -15,7 +15,10 @@ data class TabItem(val title: String, val icon: ImageVector, val screen: @Compos
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen() {
+fun MainScreen(
+    isDarkTheme: Boolean = false,
+    onThemeChanged: (Boolean) -> Unit = {}
+) {
     var selectedTab by remember { mutableIntStateOf(0) }
 
     val tabs = remember {
@@ -23,7 +26,10 @@ fun MainScreen() {
             TabItem("منبه", Icons.Default.Alarm) { AlarmScreen() },
             TabItem("مؤقت", Icons.Default.Timer) { TimerScreen() },
             TabItem("أيام", Icons.Default.CalendarMonth) { DayCounterScreen() },
-            TabItem("إعدادات", Icons.Default.Settings) { SettingsScreen() }
+            TabItem("إعدادات", Icons.Default.Settings) { SettingsScreen(
+                isDarkTheme = isDarkTheme,
+                onThemeChanged = onThemeChanged
+            ) }
         )
     }
 
