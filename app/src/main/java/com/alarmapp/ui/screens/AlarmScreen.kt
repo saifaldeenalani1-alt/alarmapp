@@ -1,5 +1,6 @@
 package com.alarmapp.ui.screens
 
+import com.alarmapp.R
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.app.TimePickerDialog
