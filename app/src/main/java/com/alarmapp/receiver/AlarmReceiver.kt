@@ -1,5 +1,6 @@
 package com.alarmapp.receiver
 
+import android.app.AlarmManager
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -16,70 +17,34 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.alarmapp.AlarmApp
 import com.alarmapp.MainActivity
-import com.alarmapp.util.AlarmScheduler
 import java.util.Calendar
 
 class AlarmReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        val wakeLock = (context.getSystemService(Context.POWER_SERVICE) as PowerManager)
-            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AlarmApp:AlarmReceiver")
-        wakeLock.acquire(10_000L)
+        val alarmId = intent.getStringExtra("alarm_id") ?: return
+        val prefs = com.alarmapp.data.PreferencesManager(context)
+        val alarms = prefs.getAlarms()
+        val alarm = alarms.find { it.id == alarmId } ?: return
+        if (!alarm.isEnabled) return
 
-        try {
-            val alarmId = intent.getStringExtra("alarm_id") ?: return
-            val prefs = com.alarmapp.data.PreferencesManager(context)
-            val alarms = prefs.getAlarms()
-            val alarm = alarms.find { it.id == alarmId } ?: return
-            if (!alarm.isEnabled) return
-
-            if (alarm.isScheduled) {
-                val now = Calendar.getInstance()
-                val endCal = Calendar.getInstance().apply {
-                    set(Calendar.HOUR_OF_DAY, alarm.endHour)
-                    set(Calendar.MINUTE, alarm.endMinute)
-                    set(Calendar.SECOND, 0)
-                }
-                if (now.after(endCal)) {
-                    AlarmScheduler.cancelAlarm(context, alarm)
-                    return
-                }
+        if (alarm.isScheduled) {
+            val now = Calendar.getInstance()
+            val endCal = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, alarm.endHour)
+                set(Calendar.MINUTE, alarm.endMinute)
+                set(Calendar.SECOND, 0)
             }
-
-            showAlarmNotification(context, alarmId, alarm.label, alarm.toneUri, alarm.vibrate, alarm.muteInSilentMode)
-
-            val nextCal = Calendar.getInstance()
-            nextCal.add(Calendar.MINUTE, alarm.intervalMinutes)
-
-            val nextIntent = Intent(context, AlarmReceiver::class.java).apply {
-                putExtra("alarm_id", alarmId)
-                putExtra("interval_minutes", alarm.intervalMinutes)
+            if (now.after(endCal)) {
+                val cancelIntent = Intent(context, AlarmReceiver::class.java).apply { putExtra("alarm_id", alarmId) }
+                val pi = PendingIntent.getBroadcast(context, alarmId.hashCode(), cancelIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                (context.getSystemService(Context.ALARM_SERVICE) as AlarmManager).cancel(pi)
+                return
             }
-            val pendingIntent = PendingIntent.getBroadcast(
-                context, alarmId.hashCode(), nextIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-
-            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (!alarmManager.canScheduleExactAlarms()) {
-                    alarmManager.set(android.app.AlarmManager.RTC_WAKEUP, nextCal.timeInMillis, pendingIntent)
-                } else {
-                    alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, nextCal.timeInMillis, pendingIntent)
-                }
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, nextCal.timeInMillis, pendingIntent)
-            } else {
-                alarmManager.setExact(android.app.AlarmManager.RTC_WAKEUP, nextCal.timeInMillis, pendingIntent)
-            }
-        } finally {
-            if (wakeLock.isHeld) wakeLock.release()
         }
-    }
 
-    private fun showAlarmNotification(context: Context, alarmId: String, label: String, toneUri: String, vibrate: Boolean, muteInSilent: Boolean) {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             notificationManager.deleteNotificationChannel(AlarmApp.CHANNEL_ALARM)
             val channel = android.app.NotificationChannel(
@@ -89,54 +54,66 @@ class AlarmReceiver : BroadcastReceiver() {
             ).apply {
                 description = "قناة تنبيهات المنبه"
                 setSound(null, null)
-                enableVibration(vibrate)
-                if (vibrate) {
-                    vibrationPattern = longArrayOf(0, 500, 200, 500)
-                }
+                enableVibration(alarm.vibrate)
+                if (alarm.vibrate) vibrationPattern = longArrayOf(0, 500, 200, 500)
             }
             notificationManager.createNotificationChannel(channel)
         }
 
-        val intent = Intent(context, MainActivity::class.java).apply {
+        val openIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
-        val pendingIntent = PendingIntent.getActivity(
-            context, 0, intent,
+        val contentIntent = PendingIntent.getActivity(
+            context, 0, openIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         val notification = NotificationCompat.Builder(context, AlarmApp.CHANNEL_ALARM)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle(label.ifEmpty { "تنبيه" })
+            .setContentTitle(alarm.label.ifEmpty { "تنبيه" })
             .setContentText("حان وقت التنبيه!")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setContentIntent(pendingIntent)
+            .setContentIntent(contentIntent)
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setFullScreenIntent(pendingIntent, true)
+            .setFullScreenIntent(contentIntent, true)
             .build()
 
         try {
             NotificationManagerCompat.from(context).notify(alarmId.hashCode(), notification)
         } catch (_: SecurityException) { }
 
-        // Play sound via MediaPlayer directly (more reliable than notification channel sound)
-        val shouldPlay = if (muteInSilent && isDndActive(context)) {
-            false
+        // Play tone once; dismiss notification + clean up when done
+        if (!alarm.muteInSilentMode || !isDndActive(context)) {
+            playToneOnce(context, alarm.toneUri, alarmId.hashCode(), notificationManager)
         } else {
-            true
-        }
-        if (shouldPlay) {
-            playAlarmSound(context, toneUri)
+            notificationManager.cancel(alarmId.hashCode())
         }
 
-        // Auto-dismiss notification and stop sound after 10 seconds
-        Handler(Looper.getMainLooper()).postDelayed({
-            try {
-                notificationManager.cancel(alarmId.hashCode())
-                stopAlarmSound()
-            } catch (_: Exception) { }
-        }, 10_000L)
+        // Reschedule next alarm if repeating
+        if (alarm.isScheduled) {
+            val nextCal = Calendar.getInstance()
+            nextCal.add(Calendar.MINUTE, alarm.intervalMinutes)
+            val nextIntent = Intent(context, AlarmReceiver::class.java).apply {
+                putExtra("alarm_id", alarmId)
+            }
+            val pi = PendingIntent.getBroadcast(
+                context, alarmId.hashCode(), nextIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (!am.canScheduleExactAlarms()) {
+                    am.set(AlarmManager.RTC_WAKEUP, nextCal.timeInMillis, pi)
+                } else {
+                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextCal.timeInMillis, pi)
+                }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextCal.timeInMillis, pi)
+            } else {
+                am.setExact(AlarmManager.RTC_WAKEUP, nextCal.timeInMillis, pi)
+            }
+        }
     }
 
     private fun isDndActive(context: Context): Boolean {
@@ -148,30 +125,37 @@ class AlarmReceiver : BroadcastReceiver() {
         return false
     }
 
-    private fun playAlarmSound(context: Context, toneUri: String) {
-        stopAlarmSound()
+    private fun playToneOnce(context: Context, toneUri: String, notificationId: Int, notificationManager: NotificationManager) {
+        stopTone()
         try {
-            val uri = if (toneUri.isNotEmpty()) {
-                Uri.parse(toneUri)
-            } else {
-                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-            }
-            currentPlayer = MediaPlayer.create(context, uri)?.apply {
-                isLooping = true
+            val wl = (context.getSystemService(Context.POWER_SERVICE) as PowerManager)
+                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AlarmApp:AlarmTone")
+            wl.acquire()
+
+            val uri = if (toneUri.isNotEmpty()) Uri.parse(toneUri)
+                else RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+
+            _player = MediaPlayer.create(context, uri)?.apply {
+                setOnCompletionListener {
+                    release()
+                    _player = null
+                    notificationManager.cancel(notificationId)
+                    if (wl.isHeld) wl.release()
+                }
                 start()
             }
         } catch (_: Exception) { }
     }
 
     companion object {
-        private var currentPlayer: MediaPlayer? = null
+        private var _player: MediaPlayer? = null
 
-        fun stopAlarmSound() {
-            currentPlayer?.apply {
+        fun stopTone() {
+            _player?.apply {
                 if (isPlaying) stop()
                 release()
             }
-            currentPlayer = null
+            _player = null
         }
     }
 }

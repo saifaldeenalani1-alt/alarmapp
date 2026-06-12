@@ -213,44 +213,53 @@ fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) 
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Text("الفاصل الزمني")
-
-                ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-                    OutlinedTextField(
-                        value = "${intervalMinutes} دقيقة",
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                // Alarm time – always visible
+                Button(
+                    onClick = { showStartTimePicker = true },
+                    modifier = Modifier.fillMaxWidth().height(56.dp)
+                ) {
+                    Text(
+                        "⏰ ${"%02d".format(startHour)}:${"%02d".format(startMinute)}",
+                        style = MaterialTheme.typography.titleLarge
                     )
-                    ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                        intervalOptions.forEach { option ->
-                            DropdownMenuItem(
-                                text = { Text("${option} دقيقة") },
-                                onClick = {
-                                    intervalMinutes = option
-                                    expanded = false
-                                }
-                            )
+                }
+
+                // Repeat toggle
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("تكرار", modifier = Modifier.weight(1f))
+                    Switch(checked = isScheduled, onCheckedChange = { isScheduled = it })
+                }
+
+                // Repeat options (only visible when repeat is on)
+                if (isScheduled) {
+                    Text("الفاصل الزمني للتكرار")
+                    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+                        OutlinedTextField(
+                            value = "${intervalMinutes} دقيقة",
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                            intervalOptions.forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text("${option} دقيقة") },
+                                    onClick = {
+                                        intervalMinutes = option
+                                        expanded = false
+                                    }
+                                )
+                            }
                         }
                     }
-                }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    OutlinedButton(onClick = { showStartTimePicker = true }) {
-                        Text("بداية: ${"%02d".format(startHour)}:${"%02d".format(startMinute)}")
+                    OutlinedButton(
+                        onClick = { showEndTimePicker = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("مدى العمل حتى ${"%02d".format(endHour)}:${"%02d".format(endMinute)}")
                     }
-                    OutlinedButton(onClick = { showEndTimePicker = true }) {
-                        Text("نهاية: ${"%02d".format(endHour)}:${"%02d".format(endMinute)}")
-                    }
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("جدولة بين وقتين", modifier = Modifier.weight(1f))
-                    Switch(checked = isScheduled, onCheckedChange = { isScheduled = it })
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
