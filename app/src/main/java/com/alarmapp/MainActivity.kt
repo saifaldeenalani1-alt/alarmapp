@@ -1,9 +1,12 @@
 package com.alarmapp
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -20,9 +23,14 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ -> }
 
+    private val overlayPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { _ -> }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestRequiredPermissions()
+        requestOverlayPermission()
         setContent {
             AlarmAppTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -34,7 +42,6 @@ class MainActivity : ComponentActivity() {
 
     private fun requestRequiredPermissions() {
         val permissions = mutableListOf(
-            Manifest.permission.SYSTEM_ALERT_WINDOW,
             Manifest.permission.POST_NOTIFICATIONS,
             Manifest.permission.SCHEDULE_EXACT_ALARM
         )
@@ -49,6 +56,18 @@ class MainActivity : ComponentActivity() {
 
         if (needed.isNotEmpty()) {
             requestPermissionLauncher.launch(needed.toTypedArray())
+        }
+    }
+
+    private fun requestOverlayPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (!Settings.canDrawOverlays(this)) {
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:$packageName")
+                )
+                overlayPermissionLauncher.launch(intent)
+            }
         }
     }
 }

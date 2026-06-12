@@ -164,6 +164,8 @@ fun AddEventDialog(event: DayCounterEvent? = null, onDismiss: () -> Unit, onSave
     var dateText by remember { mutableStateOf(formatDateFull(event?.date ?: System.currentTimeMillis())) }
     var widgetTextColor by remember { mutableStateOf(event?.widgetTextColor ?: 0xFFFFFFFF.toInt()) }
     var widgetBgColor by remember { mutableStateOf(event?.widgetBgColor ?: 0xCC000000.toInt()) }
+    var widgetFontSize by remember { mutableStateOf(event?.widgetFontSize ?: 32) }
+    var widgetBgTransparency by remember { mutableStateOf(event?.widgetBgTransparency ?: 80) }
     val isEdit = event != null
 
     AlertDialog(
@@ -222,11 +224,34 @@ fun AddEventDialog(event: DayCounterEvent? = null, onDismiss: () -> Unit, onSave
                     listOf(
                         "أسود" to 0xCC000000.toInt(), "أزرق" to 0xCC1A73E8.toInt(),
                         "أخضر" to 0xCC34A853.toInt(), "أحمر" to 0xCCD93030.toInt(),
-                        "رمادي" to 0xCC444444.toInt()
+                        "رمادي" to 0xCC444444.toInt(), "أصفر" to 0xCCFFD600.toInt(),
+                        "برتقالي" to 0xCCFF6D00.toInt(), "بنفسجي" to 0xCCAA00FF.toInt()
                     ).forEach { (label, color) ->
                         ColorButton(color = color, label = label, isSelected = widgetBgColor == color, onClick = { widgetBgColor = color })
                     }
                 }
+
+                Spacer(Modifier.height(8.dp))
+                Text("حجم خط الأيام", style = MaterialTheme.typography.bodySmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(24 to "صغير", 32 to "متوسط", 40 to "كبير", 48 to "كبير جداً").forEach { (size, label) ->
+                        FilterChip(
+                            selected = widgetFontSize == size,
+                            onClick = { widgetFontSize = size },
+                            label = { Text(label) }
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Text("شفافية الخلفية", style = MaterialTheme.typography.bodySmall)
+                Text("${widgetBgTransparency}%", style = MaterialTheme.typography.bodyLarge)
+                Slider(
+                    value = widgetBgTransparency.toFloat(),
+                    onValueChange = { widgetBgTransparency = it.toInt() },
+                    valueRange = 20f..100f,
+                    steps = 7
+                )
             }
         },
         confirmButton = {
@@ -241,7 +266,9 @@ fun AddEventDialog(event: DayCounterEvent? = null, onDismiss: () -> Unit, onSave
                             isCountdown = isCountdown,
                             widgetId = event?.widgetId ?: -1,
                             widgetTextColor = widgetTextColor,
-                            widgetBgColor = widgetBgColor
+                            widgetBgColor = widgetBgColor,
+                            widgetFontSize = widgetFontSize,
+                            widgetBgTransparency = widgetBgTransparency
                         )
                     )
                 }

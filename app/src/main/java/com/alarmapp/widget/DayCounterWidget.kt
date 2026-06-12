@@ -5,10 +5,12 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.widget.RemoteViews
 import com.alarmapp.MainActivity
 import com.alarmapp.R
 import com.alarmapp.data.PreferencesManager
+import com.alarmapp.model.DayCounterEvent
 import java.util.Calendar
 
 class DayCounterWidget : AppWidgetProvider() {
@@ -18,41 +20,65 @@ class DayCounterWidget : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
+        val prefs = PreferencesManager(context)
+        val events = prefs.getEvents().toMutableList()
+        val unassignedEvents = events.filter { it.widgetId == -1 }.toMutableList()
+
         appWidgetIds.forEach { widgetId ->
-            updateWidget(context, appWidgetManager, widgetId)
+            val existing = events.firstOrNull { it.widgetId == widgetId }
+            val event: DayCounterEvent?
+            if (existing != null) {
+                event = existing
+            } else if (unassignedEvents.isNotEmpty()) {
+                event = unassignedEvents.removeAt(0)
+                val idx = events.indexOfFirst { it.id == event.id }
+                if (idx >= 0) {
+                    events[idx] = event.copy(widgetId = widgetId)
+                    prefs.saveEvent(events[idx])
+                }
+            } else {
+                event = events.firstOrNull()
+            }
+            updateWidget(context, appWidgetManager, widgetId, event)
         }
     }
 
     private fun updateWidget(
         context: Context,
         appWidgetManager: AppWidgetManager,
-        widgetId: Int
+        widgetId: Int,
+        event: DayCounterEvent?
     ) {
-        val prefs = PreferencesManager(context)
-        val events = prefs.getEvents()
         val views = RemoteViews(context.packageName, R.layout.widget_day_counter)
-
-        val event = events.firstOrNull { it.widgetId == widgetId } ?: events.firstOrNull()
 
         if (event != null) {
             val now = Calendar.getInstance()
             val eventCal = Calendar.getInstance().apply { timeInMillis = event.date }
             val diff: Long
+            val isCountdown = event.isCountdown
+            val countFieldId = R.id.widget_days_count
+            val labelFieldId = R.id.widget_days_label
 
-            if (event.isCountdown) {
+            if (isCountdown) {
                 diff = (eventCal.timeInMillis - now.timeInMillis) / (1000 * 60 * 60 * 24)
-                views.setTextViewText(R.id.widget_days_label, "يوم متبقي")
+                views.setTextViewText(labelFieldId, "يوم متبقي")
             } else {
                 diff = (now.timeInMillis - eventCal.timeInMillis) / (1000 * 60 * 60 * 24)
-                views.setTextViewText(R.id.widget_days_label, "يوم مضى")
+                views.setTextViewText(labelFieldId, "يوم مضى")
             }
 
             views.setTextViewText(R.id.widget_event_name, event.name)
-            views.setTextViewText(R.id.widget_days_count, if (diff < 0) "0" else diff.toString())
+            views.setTextViewText(countFieldId, if (diff < 0) "0" else diff.toString())
             views.setTextColor(R.id.widget_event_name, event.widgetTextColor)
-            views.setTextColor(R.id.widget_days_count, event.widgetTextColor)
-            views.setTextColor(R.id.widget_days_label, event.widgetTextColor)
-            views.setInt(R.id.widget_root, "setBackgroundColor", event.widgetBgColor)
+            views.setTextColor(countFieldId, event.widgetTextColor)
+            views.setTextColor(labelFieldId, event.widgetTextColor)
+            views.setTextViewTextSize(countFieldId, android.util.TypedValue.COMPLEX_UNIT_SP, event.widgetFontSize.toFloat())
+
+            val alpha = event.widgetBgTransparency / 100f
+            val bgColor = (event.widgetBgColor and 0x00FFFFFF) or ((alpha * 255).toInt() shl 24)
+            views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_bg)
+            views.setColorStateList(R.id.widget_root, "setBackgroundTintList",
+                android.content.res.ColorStateList.valueOf(bgColor))
         } else {
             views.setTextViewText(R.id.widget_event_name, context.getString(R.string.day_counter))
             views.setTextViewText(R.id.widget_days_count, "--")

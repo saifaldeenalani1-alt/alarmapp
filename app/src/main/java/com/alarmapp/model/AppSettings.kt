@@ -5,7 +5,5 @@ data class AppSettings(
     val fontColor: Int = 0xFFFFFFFF.toInt(),
     val backgroundColor: Int = 0xCC000000.toInt(),
     val transparency: Int = 80,
-    val alarmToneUri: String = "",
-    val vibrateEnabled: Boolean = true,
-    val floatingTimerEnabled: Boolean = false
+    val vibrateEnabled: Boolean = true
 )

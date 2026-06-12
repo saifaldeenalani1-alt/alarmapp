@@ -11,7 +11,6 @@ import androidx.core.app.NotificationManagerCompat
 import com.alarmapp.AlarmApp
 import com.alarmapp.MainActivity
 import com.alarmapp.R
-import com.alarmapp.model.AppSettings
 import com.alarmapp.util.AlarmScheduler
 import com.alarmapp.data.PreferencesManager
 
@@ -26,8 +25,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val alarm = alarms.find { it.id == alarmId } ?: return
         if (!alarm.isEnabled) return
 
-        val settings = prefs.getSettings()
-        showAlarmNotification(context, alarmId, alarm.label, settings)
+        showAlarmNotification(context, alarmId, alarm.label, alarm.toneUri, alarm.vibrate)
 
         val nextCal = java.util.Calendar.getInstance()
         nextCal.add(java.util.Calendar.MINUTE, interval)
@@ -66,7 +64,7 @@ class AlarmReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun showAlarmNotification(context: Context, alarmId: String, label: String, settings: AppSettings) {
+    private fun showAlarmNotification(context: Context, alarmId: String, label: String, toneUri: String, vibrate: Boolean) {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
@@ -75,8 +73,8 @@ class AlarmReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val soundUri: Uri = if (settings.alarmToneUri.isNotEmpty()) {
-            Uri.parse(settings.alarmToneUri)
+        val soundUri: Uri = if (toneUri.isNotEmpty()) {
+            Uri.parse(toneUri)
         } else {
             RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
         }
@@ -89,7 +87,7 @@ class AlarmReceiver : BroadcastReceiver() {
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .setSound(soundUri)
-            .setVibrate(if (settings.vibrateEnabled) longArrayOf(0, 500, 200, 500) else null)
+            .setVibrate(if (vibrate) longArrayOf(0, 500, 200, 500) else null)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setFullScreenIntent(pendingIntent, true)
             .build()

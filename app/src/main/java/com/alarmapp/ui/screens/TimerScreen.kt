@@ -1,6 +1,8 @@
 package com.alarmapp.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -68,14 +70,17 @@ fun TimerScreen() {
         }
 
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("تنازلي", style = MaterialTheme.typography.bodyLarge)
-                Switch(checked = isCountdown, onCheckedChange = { isCountdown = it })
-                Text("تصاعدي", style = MaterialTheme.typography.bodyLarge)
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                SegmentedButton(
+                    selected = isCountdown,
+                    onClick = { isCountdown = true },
+                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                ) { Text("تنازلي") }
+                SegmentedButton(
+                    selected = !isCountdown,
+                    onClick = { isCountdown = false },
+                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                ) { Text("تصاعدي") }
             }
         }
 
@@ -104,7 +109,7 @@ fun TimerScreen() {
 
                     Text("حجم الخط", style = MaterialTheme.typography.bodyMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(18 to "صغير", 24 to "متوسط", 30 to "كبير", 36 to "كبير جداً").forEach { (size, label) ->
+                        listOf(18 to "صغير", 24 to "متوسط", 30 to "كبير", 36 to "كبير جداً", 48 to "ضخم").forEach { (size, label) ->
                             FilterChip(
                                 selected = fontSize == size,
                                 onClick = { fontSize = size },
@@ -115,13 +120,13 @@ fun TimerScreen() {
 
                     Spacer(Modifier.height(12.dp))
                     Text("لون الخط", style = MaterialTheme.typography.bodyMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         listOf(
-                            "أبيض" to 0xFFFFFFFF.toInt(),
-                            "أحمر" to 0xFFD93030.toInt(),
-                            "أخضر" to 0xFF34A853.toInt(),
-                            "أزرق" to 0xFF1A73E8.toInt(),
-                            "أسود" to 0xFF000000.toInt()
+                            "أبيض" to 0xFFFFFFFF.toInt(), "أحمر" to 0xFFD93030.toInt(),
+                            "أخضر" to 0xFF34A853.toInt(), "أزرق" to 0xFF1A73E8.toInt(),
+                            "أسود" to 0xFF000000.toInt(), "أصفر" to 0xFFFFD600.toInt(),
+                            "برتقالي" to 0xFFFF6D00.toInt(), "بنفسجي" to 0xFFAA00FF.toInt(),
+                            "وردي" to 0xFFFF4081.toInt(), "سماوي" to 0xFF00BCD4.toInt()
                         ).forEach { (label, color) ->
                             ColorButton(color = color, label = label, isSelected = fontColor == color, onClick = { fontColor = color })
                         }
@@ -129,11 +134,13 @@ fun TimerScreen() {
 
                     Spacer(Modifier.height(12.dp))
                     Text("لون الخلفية", style = MaterialTheme.typography.bodyMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         listOf(
                             "أسود" to 0xCC000000.toInt(), "أزرق" to 0xCC1A73E8.toInt(),
                             "أخضر" to 0xCC34A853.toInt(), "أحمر" to 0xCCD93030.toInt(),
-                            "رمادي" to 0xCC444444.toInt()
+                            "رمادي" to 0xCC444444.toInt(), "أصفر" to 0xCCFFD600.toInt(),
+                            "برتقالي" to 0xCCFF6D00.toInt(), "بنفسجي" to 0xCCAA00FF.toInt(),
+                            "وردي" to 0xCCFF4081.toInt(), "سماوي" to 0xCC00BCD4.toInt()
                         ).forEach { (label, color) ->
                             ColorButton(color = color, label = label, isSelected = bgColor == color, onClick = { bgColor = color })
                         }
@@ -167,7 +174,7 @@ fun TimerScreen() {
                         modifier = Modifier
                             .clip(RoundedCornerShape(16.dp))
                             .background(Color(bgColor).copy(alpha = bgTransparency / 100f))
-                            .padding(horizontal = 24.dp, vertical = 16.dp),
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -217,7 +224,8 @@ fun TimerScreen() {
                     colors = CardDefaults.cardColors(
                         containerColor = if (timer.isRunning) MaterialTheme.colorScheme.primaryContainer
                         else MaterialTheme.colorScheme.surfaceVariant
-                    )
+                    ),
+                    border = if (!timer.isRunning) CardDefaults.outlinedCardBorder() else null
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -267,8 +275,7 @@ fun TimerScreen() {
                     Spacer(Modifier.height(8.dp))
                     Text("• اضغط على المؤقت للبدء/الإيقاف")
                     Text("• اسحب المؤقت لتحريكه")
-                    Text("• اسحب لأسفل (أكثر من 300 بكسل) لإلغائه")
-                    Text("• اضغط مطولاً (ثانيتين) لإلغائه")
+                    Text("• اضغط على إيقاف لحذف المؤقت")
                     Text("• يمكن تشغيل أكثر من مؤقت في نفس الوقت")
                 }
             }

@@ -1,7 +1,5 @@
 package com.alarmapp.ui.screens
 
-import android.media.RingtoneManager
-import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
@@ -40,20 +38,12 @@ fun SettingsScreen() {
         }
 
         item {
-            Text("نغمة التنبيه", style = MaterialTheme.typography.titleMedium)
-            OutlinedButton(
-                onClick = {
-                    val intent = android.content.Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                        putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
-                        putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "اختر نغمة التنبيه")
-                        putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI,
-                            if (settings.alarmToneUri.isNotEmpty()) Uri.parse(settings.alarmToneUri) else null)
-                    }
-                    context.startActivity(intent)
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("اختيار نغمة التنبيه")
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("نغمة التنبيه", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(4.dp))
+                    Text("يمكنك اختيار نغمة لكل منبه عند إضافته من شاشة المنبهات", style = MaterialTheme.typography.bodyMedium)
+                }
             }
         }
 
@@ -68,16 +58,6 @@ fun SettingsScreen() {
                     checked = settings.vibrateEnabled,
                     onCheckedChange = { save(settings.copy(vibrateEnabled = it)) }
                 )
-            }
-        }
-
-        item {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("تخصيص المؤقت العائم", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(8.dp))
-                    Text("تم نقل تخصيص حجم الخط ولون الخط ولون الخلفية والشفافية إلى شاشة المؤقت", style = MaterialTheme.typography.bodyMedium)
-                }
             }
         }
 

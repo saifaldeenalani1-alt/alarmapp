@@ -33,8 +33,8 @@ class FloatingTimerService : Service() {
         var isCountdown: Boolean,
         var isRunning: Boolean,
         var isPaused: Boolean,
-        var view: View,
-        var timerText: TextView,
+        val view: View,
+        val timerText: TextView,
         var paramX: Int,
         var paramY: Int,
         val fontSize: Int,
@@ -136,19 +136,20 @@ class FloatingTimerService : Service() {
         timerText.setTextColor(fontColor)
 
         val density = resources.displayMetrics.density
+        val alpha = bgTransparency / 100f
+        val bgColorWithAlpha = (bgColor and 0x00FFFFFF) or ((alpha * 255).toInt() shl 24)
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            setColor(bgColor)
+            setColor(bgColorWithAlpha)
             cornerRadius = 16 * density
         }
         view.background = bg
-        view.alpha = bgTransparency / 100f
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -190,7 +191,6 @@ class FloatingTimerService : Service() {
             private var initialTouchX = 0f
             private var initialTouchY = 0f
             private var isDragging = false
-            private var longPressTimer: java.util.Timer? = null
 
             override fun onTouch(v: View?, event: MotionEvent?): Boolean {
                 when (event?.action) {
@@ -200,22 +200,12 @@ class FloatingTimerService : Service() {
                         initialTouchX = event.rawX
                         initialTouchY = event.rawY
                         isDragging = false
-
-                        longPressTimer?.cancel()
-                        longPressTimer = java.util.Timer()
-                        longPressTimer?.schedule(object : java.util.TimerTask() {
-                            override fun run() {
-                                handler.post { removeTimer(instance.id) }
-                            }
-                        }, 2000)
                     }
                     MotionEvent.ACTION_MOVE -> {
                         val dx = (event.rawX - initialTouchX).toInt()
                         val dy = (event.rawY - initialTouchY).toInt()
                         if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
                             isDragging = true
-                            longPressTimer?.cancel()
-
                             val displayMetrics = resources.displayMetrics
                             params.x = (initialX + dx).coerceIn(0, displayMetrics.widthPixels - instance.view.width)
                             params.y = (initialY + dy).coerceIn(0, displayMetrics.heightPixels - instance.view.height)
@@ -223,12 +213,6 @@ class FloatingTimerService : Service() {
                         }
                     }
                     MotionEvent.ACTION_UP -> {
-                        longPressTimer?.cancel()
-                        val dy = event.rawY - initialTouchY
-                        if (dy > 300) {
-                            removeTimer(instance.id)
-                            return true
-                        }
                         if (!isDragging) {
                             toggleTimer(instance)
                         }
@@ -241,12 +225,41 @@ class FloatingTimerService : Service() {
 
     private fun toggleTimer(instance: TimerInstance) {
         if (!instance.isRunning) {
+            if (instance.isCountdown && instance.elapsedSeconds >= instance.totalSeconds) {
+                instance.elapsedSeconds = 0
+            }
             instance.isRunning = true
             instance.isPaused = false
+            updateViewAppearance(instance)
+            updateDisplay(instance)
             handler.post(tickRunnable)
         } else {
             instance.isRunning = false
             instance.isPaused = true
+            updateViewAppearance(instance)
+        }
+    }
+
+    private fun updateViewAppearance(instance: TimerInstance) {
+        val density = resources.displayMetrics.density
+        val alpha = instance.bgTransparency / 100f
+        val bgColorWithAlpha = (instance.bgColor and 0x00FFFFFF) or ((alpha * 255).toInt() shl 24)
+
+        if (instance.isRunning) {
+            val bg = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setColor(bgColorWithAlpha)
+                cornerRadius = 16 * density
+            }
+            instance.view.background = bg
+        } else {
+            val bg = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setColor(bgColorWithAlpha)
+                cornerRadius = 16 * density
+                setStroke(3 * density.toInt(), 0xFFFF6D00.toInt())
+            }
+            instance.view.background = bg
         }
     }
 
@@ -261,6 +274,8 @@ class FloatingTimerService : Service() {
                         if (timer.elapsedSeconds >= timer.totalSeconds) {
                             timer.elapsedSeconds = timer.totalSeconds
                             timer.isRunning = false
+                            timer.isPaused = false
+                            updateViewAppearance(timer)
                         }
                     } else {
                         timer.elapsedSeconds++
@@ -281,7 +296,12 @@ class FloatingTimerService : Service() {
             instance.totalSeconds - instance.elapsedSeconds
         else
             instance.elapsedSeconds
-        instance.timerText.text = formatTimeShort(display)
+
+        if (instance.isCountdown && instance.elapsedSeconds >= instance.totalSeconds && !instance.isRunning) {
+            instance.timerText.text = formatTimeShort(0)
+        } else {
+            instance.timerText.text = formatTimeShort(display)
+        }
     }
 
     private fun removeTimer(timerId: String) {

@@ -5,13 +5,18 @@ import android.app.PendingIntent
 import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
+import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -163,11 +168,21 @@ fun AddAlarmDialog(onDismiss: () -> Unit, onSave: (Alarm) -> Unit) {
     var endMinute by remember { mutableIntStateOf(0) }
     var isScheduled by remember { mutableStateOf(false) }
     var label by remember { mutableStateOf("") }
+    var toneUri by remember { mutableStateOf("") }
+    var vibrate by remember { mutableStateOf(true) }
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
 
     val intervalOptions = listOf(5, 10, 15, 30, 60, 120, 180, 360, 720, 1440)
     var expanded by remember { mutableStateOf(false) }
+    val tonePickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val uri = result.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI, Uri::class.java)
+            if (uri != null) toneUri = uri.toString()
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -220,6 +235,28 @@ fun AddAlarmDialog(onDismiss: () -> Unit, onSave: (Alarm) -> Unit) {
                     Text("جدولة بين وقتين", modifier = Modifier.weight(1f))
                     Switch(checked = isScheduled, onCheckedChange = { isScheduled = it })
                 }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("الاهتزاز", modifier = Modifier.weight(1f))
+                    Switch(checked = vibrate, onCheckedChange = { vibrate = it })
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        val intent = android.content.Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "اختر نغمة المنبه")
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI,
+                                if (toneUri.isNotEmpty()) Uri.parse(toneUri) else null)
+                        }
+                        tonePickerLauncher.launch(intent)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (toneUri.isNotEmpty()) "تغيير النغمة" else "اختيار نغمة المنبه")
+                }
             }
         },
         confirmButton = {
@@ -232,7 +269,9 @@ fun AddAlarmDialog(onDismiss: () -> Unit, onSave: (Alarm) -> Unit) {
                         endHour = endHour,
                         endMinute = endMinute,
                         isScheduled = isScheduled,
-                        label = label
+                        label = label,
+                        toneUri = toneUri,
+                        vibrate = vibrate
                     )
                 )
             }) { Text("حفظ") }
