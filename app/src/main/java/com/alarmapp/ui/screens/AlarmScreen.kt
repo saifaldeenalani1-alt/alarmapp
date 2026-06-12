@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -38,6 +39,7 @@ fun AlarmScreen() {
     val prefs = remember { PreferencesManager(context) }
     var alarms by remember { mutableStateOf(prefs.getAlarms()) }
     var showAddDialog by remember { mutableStateOf(false) }
+    var editingAlarm by remember { mutableStateOf<Alarm?>(null) }
 
     fun refresh() { alarms = prefs.getAlarms() }
 
@@ -69,6 +71,7 @@ fun AlarmScreen() {
                             }
                             refresh()
                         },
+                        onEdit = { editingAlarm = alarm; showAddDialog = true },
                         onDelete = {
                             AlarmScheduler.cancelAlarm(context, alarm)
                             prefs.deleteAlarm(alarm.id)
@@ -80,7 +83,7 @@ fun AlarmScreen() {
         }
 
         FloatingActionButton(
-            onClick = { showAddDialog = true },
+            onClick = { editingAlarm = null; showAddDialog = true },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp)
@@ -91,19 +94,25 @@ fun AlarmScreen() {
 
     if (showAddDialog) {
         AddAlarmDialog(
-            onDismiss = { showAddDialog = false },
+            alarm = editingAlarm,
+            onDismiss = { showAddDialog = false; editingAlarm = null },
             onSave = { alarm ->
                 prefs.saveAlarm(alarm)
-                AlarmScheduler.scheduleAlarm(context, alarm)
+                if (alarm.isEnabled) {
+                    AlarmScheduler.scheduleAlarm(context, alarm)
+                } else {
+                    AlarmScheduler.cancelAlarm(context, alarm)
+                }
                 refresh()
                 showAddDialog = false
+                editingAlarm = null
             }
         )
     }
 }
 
 @Composable
-fun AlarmCard(alarm: Alarm, onToggle: () -> Unit, onDelete: () -> Unit) {
+fun AlarmCard(alarm: Alarm, onToggle: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -145,6 +154,10 @@ fun AlarmCard(alarm: Alarm, onToggle: () -> Unit, onDelete: () -> Unit) {
                 }
             }
 
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Default.Edit, "تعديل", tint = MaterialTheme.colorScheme.primary)
+            }
+
             Switch(
                 checked = alarm.isEnabled,
                 onCheckedChange = { onToggle() }
@@ -159,17 +172,17 @@ fun AlarmCard(alarm: Alarm, onToggle: () -> Unit, onDelete: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddAlarmDialog(onDismiss: () -> Unit, onSave: (Alarm) -> Unit) {
+fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) -> Unit) {
     val context = LocalContext.current
-    var intervalMinutes by remember { mutableIntStateOf(60) }
-    var startHour by remember { mutableIntStateOf(8) }
-    var startMinute by remember { mutableIntStateOf(0) }
-    var endHour by remember { mutableIntStateOf(22) }
-    var endMinute by remember { mutableIntStateOf(0) }
-    var isScheduled by remember { mutableStateOf(false) }
-    var label by remember { mutableStateOf("") }
-    var toneUri by remember { mutableStateOf("") }
-    var vibrate by remember { mutableStateOf(true) }
+    var intervalMinutes by remember { mutableIntStateOf(alarm?.intervalMinutes ?: 60) }
+    var startHour by remember { mutableIntStateOf(alarm?.startHour ?: 8) }
+    var startMinute by remember { mutableIntStateOf(alarm?.startMinute ?: 0) }
+    var endHour by remember { mutableIntStateOf(alarm?.endHour ?: 22) }
+    var endMinute by remember { mutableIntStateOf(alarm?.endMinute ?: 0) }
+    var isScheduled by remember { mutableStateOf(alarm?.isScheduled ?: false) }
+    var label by remember { mutableStateOf(alarm?.label ?: "") }
+    var toneUri by remember { mutableStateOf(alarm?.toneUri ?: "") }
+    var vibrate by remember { mutableStateOf(alarm?.vibrate ?: true) }
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
 
@@ -186,7 +199,7 @@ fun AddAlarmDialog(onDismiss: () -> Unit, onSave: (Alarm) -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("إضافة منبه جديد") },
+        title = { Text(if (alarm != null) "تعديل المنبه" else "إضافة منبه جديد") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
@@ -241,6 +254,20 @@ fun AddAlarmDialog(onDismiss: () -> Unit, onSave: (Alarm) -> Unit) {
                     Switch(checked = vibrate, onCheckedChange = { vibrate = it })
                 }
 
+                Text("النغمات المدمجة", style = MaterialTheme.typography.bodyMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = toneUri.contains("tone1"),
+                        onClick = { toneUri = "android.resource://${context.packageName}/raw/tone1" },
+                        label = { Text("نغمة 1") }
+                    )
+                    FilterChip(
+                        selected = toneUri.contains("tone2"),
+                        onClick = { toneUri = "android.resource://${context.packageName}/raw/tone2" },
+                        label = { Text("نغمة 2") }
+                    )
+                }
+
                 OutlinedButton(
                     onClick = {
                         val intent = android.content.Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
@@ -255,7 +282,7 @@ fun AddAlarmDialog(onDismiss: () -> Unit, onSave: (Alarm) -> Unit) {
                 ) {
                     Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text(if (toneUri.isNotEmpty()) "تغيير النغمة" else "اختيار نغمة المنبه")
+                    Text(if (toneUri.isNotEmpty()) "تغيير النغمة" else "اختيار نغمة من النظام")
                 }
             }
         },
@@ -263,6 +290,8 @@ fun AddAlarmDialog(onDismiss: () -> Unit, onSave: (Alarm) -> Unit) {
             Button(onClick = {
                 onSave(
                     Alarm(
+                        id = alarm?.id ?: java.util.UUID.randomUUID().toString(),
+                        isEnabled = alarm?.isEnabled ?: true,
                         intervalMinutes = intervalMinutes,
                         startHour = startHour,
                         startMinute = startMinute,
@@ -274,7 +303,7 @@ fun AddAlarmDialog(onDismiss: () -> Unit, onSave: (Alarm) -> Unit) {
                         vibrate = vibrate
                     )
                 )
-            }) { Text("حفظ") }
+            }) { Text(if (alarm != null) "حفظ التعديل" else "حفظ") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("إلغاء") }
