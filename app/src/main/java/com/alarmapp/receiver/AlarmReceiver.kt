@@ -1,6 +1,5 @@
 package com.alarmapp.receiver
 
-import android.app.AlarmManager
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -10,13 +9,12 @@ import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.alarmapp.AlarmApp
 import com.alarmapp.MainActivity
+import com.alarmapp.util.AlarmScheduler
 import java.util.Calendar
 
 class AlarmReceiver : BroadcastReceiver() {
@@ -28,18 +26,12 @@ class AlarmReceiver : BroadcastReceiver() {
         val alarm = alarms.find { it.id == alarmId } ?: return
         if (!alarm.isEnabled) return
 
-        if (alarm.isScheduled) {
-            val now = Calendar.getInstance()
-            val endCal = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, alarm.endHour)
-                set(Calendar.MINUTE, alarm.endMinute)
-                set(Calendar.SECOND, 0)
-            }
-            if (now.after(endCal)) {
-                val cancelIntent = Intent(context, AlarmReceiver::class.java).apply { putExtra("alarm_id", alarmId) }
-                val pi = PendingIntent.getBroadcast(context, alarmId.hashCode(), cancelIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-                (context.getSystemService(Context.ALARM_SERVICE) as AlarmManager).cancel(pi)
+        // For repeating alarms, check if today is a repeat day
+        if (alarm.repeatDays.isNotEmpty()) {
+            val today = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
+            if (today !in alarm.repeatDays) {
+                // Not a repeat day, schedule next occurrence
+                AlarmScheduler.scheduleAlarm(context, alarm)
                 return
             }
         }
@@ -91,28 +83,8 @@ class AlarmReceiver : BroadcastReceiver() {
         }
 
         // Reschedule next alarm if repeating
-        if (alarm.isScheduled) {
-            val nextCal = Calendar.getInstance()
-            nextCal.add(Calendar.MINUTE, alarm.intervalMinutes)
-            val nextIntent = Intent(context, AlarmReceiver::class.java).apply {
-                putExtra("alarm_id", alarmId)
-            }
-            val pi = PendingIntent.getBroadcast(
-                context, alarmId.hashCode(), nextIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (!am.canScheduleExactAlarms()) {
-                    am.set(AlarmManager.RTC_WAKEUP, nextCal.timeInMillis, pi)
-                } else {
-                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextCal.timeInMillis, pi)
-                }
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextCal.timeInMillis, pi)
-            } else {
-                am.setExact(AlarmManager.RTC_WAKEUP, nextCal.timeInMillis, pi)
-            }
+        if (alarm.repeatDays.isNotEmpty()) {
+            AlarmScheduler.scheduleAlarm(context, alarm)
         }
     }
 

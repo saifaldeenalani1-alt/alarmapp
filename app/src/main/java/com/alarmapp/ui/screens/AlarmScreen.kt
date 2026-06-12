@@ -115,6 +115,9 @@ fun AlarmScreen() {
 
 @Composable
 fun AlarmCard(alarm: Alarm, onToggle: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
+    val dayNames = arrayOf("", "الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت")
+    val shortNames = arrayOf("", "ح", "ن", "ث", "ر", "خ", "ج", "س")
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -132,26 +135,22 @@ fun AlarmCard(alarm: Alarm, onToggle: () -> Unit, onEdit: () -> Unit, onDelete: 
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "كل ${alarm.intervalMinutes} دقيقة",
+                    text = "${"%02d".format(alarm.startHour)}:${"%02d".format(alarm.startMinute)}",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "من ${"%02d".format(alarm.startHour)}:${"%02d".format(alarm.startMinute)}",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                if (alarm.isScheduled) {
+                if (alarm.repeatDays.isNotEmpty()) {
                     Text(
-                        text = "إلى ${"%02d".format(alarm.endHour)}:${"%02d".format(alarm.endMinute)}",
-                        style = MaterialTheme.typography.bodyMedium
+                        text = alarm.repeatDays.sorted().joinToString(" - ") { dayNames[it] },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
                 if (alarm.label.isNotEmpty()) {
                     Text(
                         text = alarm.label,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -179,17 +178,17 @@ fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) 
     var intervalMinutes by remember { mutableIntStateOf(alarm?.intervalMinutes ?: 60) }
     var startHour by remember { mutableIntStateOf(alarm?.startHour ?: 8) }
     var startMinute by remember { mutableIntStateOf(alarm?.startMinute ?: 0) }
-    var endHour by remember { mutableIntStateOf(alarm?.endHour ?: 22) }
-    var endMinute by remember { mutableIntStateOf(alarm?.endMinute ?: 0) }
-    var isScheduled by remember { mutableStateOf(alarm?.isScheduled ?: false) }
+    var repeatDays by remember { mutableStateOf(alarm?.repeatDays ?: emptySet()) }
     var label by remember { mutableStateOf(alarm?.label ?: "") }
     var toneUri by remember { mutableStateOf(alarm?.toneUri ?: "") }
     var vibrate by remember { mutableStateOf(alarm?.vibrate ?: true) }
     var muteInSilentMode by remember { mutableStateOf(alarm?.muteInSilentMode ?: false) }
     var currentPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
     var showStartTimePicker by remember { mutableStateOf(false) }
-    var showEndTimePicker by remember { mutableStateOf(false) }
 
+    val isRepeating = repeatDays.isNotEmpty()
+    val dayNames = listOf("الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت")
+    val dayValues = listOf(Calendar.SUNDAY, Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY, Calendar.THURSDAY, Calendar.FRIDAY, Calendar.SATURDAY)
     val intervalOptions = listOf(5, 10, 15, 30, 60, 120, 180, 360, 720, 1440)
     var expanded by remember { mutableStateOf(false) }
     val tonePickerLauncher = rememberLauncherForActivityResult(
@@ -213,7 +212,6 @@ fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) 
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Alarm time – always visible
                 Button(
                     onClick = { showStartTimePicker = true },
                     modifier = Modifier.fillMaxWidth().height(56.dp)
@@ -224,15 +222,30 @@ fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) 
                     )
                 }
 
-                // Repeat toggle
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("تكرار", modifier = Modifier.weight(1f))
-                    Switch(checked = isScheduled, onCheckedChange = { isScheduled = it })
+                    Switch(
+                        checked = isRepeating,
+                        onCheckedChange = { if (it) repeatDays = setOf(Calendar.SUNDAY) else repeatDays = emptySet() }
+                    )
                 }
 
-                // Repeat options (only visible when repeat is on)
-                if (isScheduled) {
-                    Text("الفاصل الزمني للتكرار")
+                if (isRepeating) {
+                    Text("أيام التكرار", style = MaterialTheme.typography.bodyMedium)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        dayValues.forEachIndexed { i, dayValue ->
+                            FilterChip(
+                                selected = dayValue in repeatDays,
+                                onClick = {
+                                    repeatDays = if (dayValue in repeatDays) repeatDays - dayValue
+                                    else repeatDays + dayValue
+                                },
+                                label = { Text(dayNames[i], style = MaterialTheme.typography.bodySmall) }
+                            )
+                        }
+                    }
+
+                    Text("الفاصل الزمني")
                     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
                         OutlinedTextField(
                             value = "${intervalMinutes} دقيقة",
@@ -252,13 +265,6 @@ fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) 
                                 )
                             }
                         }
-                    }
-
-                    OutlinedButton(
-                        onClick = { showEndTimePicker = true },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("مدى العمل حتى ${"%02d".format(endHour)}:${"%02d".format(endMinute)}")
                     }
                 }
 
@@ -331,9 +337,7 @@ fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) 
                         intervalMinutes = intervalMinutes,
                         startHour = startHour,
                         startMinute = startMinute,
-                        endHour = endHour,
-                        endMinute = endMinute,
-                        isScheduled = isScheduled,
+                        repeatDays = repeatDays,
                         label = label,
                         toneUri = toneUri,
                         vibrate = vibrate,
@@ -352,14 +356,6 @@ fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) 
             context,
             { _, h, m -> startHour = h; startMinute = m; showStartTimePicker = false },
             startHour, startMinute, true
-        ).show()
-    }
-
-    if (showEndTimePicker) {
-        TimePickerDialog(
-            context,
-            { _, h, m -> endHour = h; endMinute = m; showEndTimePicker = false },
-            endHour, endMinute, true
         ).show()
     }
 }
