@@ -19,6 +19,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.alarmapp.service.FloatingTimerService
+import com.alarmapp.ui.components.ColorPickerGrid
 import com.alarmapp.util.formatTimeShort
 import java.util.UUID
 
@@ -119,19 +120,10 @@ fun TimerScreen() {
 
                     Spacer(Modifier.height(12.dp))
                     Text("لون الخط", style = MaterialTheme.typography.bodyMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        colorOptions.forEach { (label, color) ->
-                            ColorButton(color = color, label = label, isSelected = fontColor == color, onClick = { fontColor = color })
-                        }
-                    }
-
-                    Spacer(Modifier.height(12.dp))
+                    ColorPickerGrid(selectedColor = fontColor, onColorSelected = { fontColor = it })
+                    Spacer(Modifier.height(4.dp))
                     Text("لون الخلفية", style = MaterialTheme.typography.bodyMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        bgColorOptions.forEach { (label, color) ->
-                            ColorButton(color = color, label = label, isSelected = bgColor == color, onClick = { bgColor = color })
-                        }
-                    }
+                    ColorPickerGrid(selectedColor = bgColor, onColorSelected = { bgColor = it })
 
                     Spacer(Modifier.height(12.dp))
                     Text("شفافية الخلفية", style = MaterialTheme.typography.bodyMedium)
@@ -266,22 +258,6 @@ fun TimerScreen() {
         }
     }
 }
-
-private val colorOptions = listOf(
-    "أبيض" to 0xFFFFFFFF.toInt(), "أحمر" to 0xFFD93030.toInt(),
-    "أخضر" to 0xFF34A853.toInt(), "أزرق" to 0xFF1A73E8.toInt(),
-    "أسود" to 0xFF000000.toInt(), "أصفر" to 0xFFFFD600.toInt(),
-    "برتقالي" to 0xFFFF6D00.toInt(), "بنفسجي" to 0xFFAA00FF.toInt(),
-    "وردي" to 0xFFFF4081.toInt(), "سماوي" to 0xFF00BCD4.toInt()
-)
-
-private val bgColorOptions = listOf(
-    "أسود" to 0xCC000000.toInt(), "أزرق" to 0xCC1A73E8.toInt(),
-    "أخضر" to 0xCC34A853.toInt(), "أحمر" to 0xCCD93030.toInt(),
-    "رمادي" to 0xCC444444.toInt(), "أصفر" to 0xCCFFD600.toInt(),
-    "برتقالي" to 0xCCFF6D00.toInt(), "بنفسجي" to 0xCCAA00FF.toInt(),
-    "وردي" to 0xCCFF4081.toInt(), "سماوي" to 0xCC00BCD4.toInt()
-)
 
 data class TimerInfo(val id: String, val displaySeconds: Long, val isRunning: Boolean)
 
