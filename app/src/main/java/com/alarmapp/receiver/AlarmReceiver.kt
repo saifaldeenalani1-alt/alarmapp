@@ -94,9 +94,9 @@ class AlarmReceiver : BroadcastReceiver() {
                 android.app.NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "قناة تنبيهات المنبه والصوت"
-                setSound(soundUri, android.app.AudioAttributes.Builder()
-                    .setUsage(android.app.AudioAttributes.USAGE_ALARM)
-                    .setContentType(android.app.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                setSound(soundUri, android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build())
                 enableVibration(vibrate)
                 if (vibrate) {
