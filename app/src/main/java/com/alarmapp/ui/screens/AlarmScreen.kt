@@ -13,11 +13,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import android.media.MediaPlayer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -255,17 +257,37 @@ fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) 
                 }
 
                 Text("النغمات المدمجة", style = MaterialTheme.typography.bodyMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     FilterChip(
                         selected = toneUri.contains("tone1"),
                         onClick = { toneUri = "android.resource://${context.packageName}/raw/tone1" },
                         label = { Text("نغمة 1") }
                     )
+                    IconButton(onClick = {
+                        try {
+                            MediaPlayer.create(context, R.raw.tone1)?.apply {
+                                setOnCompletionListener { release() }
+                                start()
+                            }
+                        } catch (_: Exception) { }
+                    }) {
+                        Icon(Icons.Default.PlayArrow, "استماع", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    }
                     FilterChip(
                         selected = toneUri.contains("tone2"),
                         onClick = { toneUri = "android.resource://${context.packageName}/raw/tone2" },
                         label = { Text("نغمة 2") }
                     )
+                    IconButton(onClick = {
+                        try {
+                            MediaPlayer.create(context, R.raw.tone2)?.apply {
+                                setOnCompletionListener { release() }
+                                start()
+                            }
+                        } catch (_: Exception) { }
+                    }) {
+                        Icon(Icons.Default.PlayArrow, "استماع", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    }
                 }
 
                 OutlinedButton(
