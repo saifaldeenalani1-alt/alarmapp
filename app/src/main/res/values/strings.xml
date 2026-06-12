@@ -60,6 +60,7 @@
     <string name="customize">تخصيص</string>
     <string name="reset_defaults">إعادة الإعدادات الافتراضية</string>
     <string name="about">حول التطبيق</string>
+    <string name="clock">الساعة</string>
     <string name="version">الإصدار 1.0</string>
     <string name="welcome_description">تطبيق المنبه والمؤقت المتكامل\nجميع الحقوق محفوظة</string>
 </resources>

@@ -2,6 +2,7 @@ package com.alarmapp.ui.screens
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Settings
@@ -24,6 +25,7 @@ fun MainScreen(
     val tabs = remember {
         listOf(
             TabItem("منبه", Icons.Default.Alarm) { AlarmScreen() },
+            TabItem("ساعة", Icons.Default.AccessTime) { ClockScreen() },
             TabItem("مؤقت", Icons.Default.Timer) { TimerScreen() },
             TabItem("أيام", Icons.Default.CalendarMonth) { DayCounterScreen() },
             TabItem("إعدادات", Icons.Default.Settings) { SettingsScreen(
