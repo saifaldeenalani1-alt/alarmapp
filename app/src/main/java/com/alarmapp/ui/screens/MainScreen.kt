@@ -20,7 +20,7 @@ fun MainScreen(
     isDarkTheme: Boolean = false,
     onThemeChanged: (Boolean) -> Unit = {}
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by remember { mutableIntStateOf(1) }
 
     val tabs = remember {
         listOf(
