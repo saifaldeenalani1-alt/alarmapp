@@ -136,7 +136,6 @@ class FloatingTimerService : Service() {
         timerText.text = formatTimeShort(if (isCountdown) totalSeconds else 0)
         timerText.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, fontSize.toFloat())
         timerText.setTextColor(fontColor)
-        timerText.typeface = android.graphics.Typeface.MONOSPACE
 
         val density = resources.displayMetrics.density
         val alpha = bgTransparency / 100f

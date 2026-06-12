@@ -12,9 +12,11 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:gravity="center"
-        android:text="00:00:00"
+        android:minEms="8"
+        android:text="00:00"
         android:textSize="24sp"
         android:textStyle="bold"
+        android:typeface="monospace"
         android:padding="4dp" />
 
 </LinearLayout>

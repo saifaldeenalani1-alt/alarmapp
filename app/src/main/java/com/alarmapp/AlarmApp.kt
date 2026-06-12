@@ -5,7 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 import com.alarmapp.data.PreferencesManager
-import com.alarmapp.receiver.BootReceiver
+import com.alarmapp.util.AlarmScheduler
 
 class AlarmApp : Application() {
 
@@ -17,6 +17,16 @@ class AlarmApp : Application() {
         prefsManager = PreferencesManager(this)
         createNotificationChannels()
         LocaleHelper.setLocale(this, "ar")
+        rescheduleAlarms()
+    }
+
+    private fun rescheduleAlarms() {
+        val alarms = prefsManager.getAlarms()
+        alarms.forEach { alarm ->
+            if (alarm.isEnabled) {
+                AlarmScheduler.scheduleAlarm(this, alarm)
+            }
+        }
     }
 
     private fun createNotificationChannels() {
