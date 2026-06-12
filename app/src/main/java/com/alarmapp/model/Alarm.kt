@@ -11,5 +11,6 @@ data class Alarm(
     val isScheduled: Boolean = false,
     val toneUri: String = "",
     val vibrate: Boolean = true,
+    val muteInSilentMode: Boolean = false,
     val label: String = ""
 )

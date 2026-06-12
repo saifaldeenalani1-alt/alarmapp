@@ -20,7 +20,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -186,6 +185,8 @@ fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) 
     var label by remember { mutableStateOf(alarm?.label ?: "") }
     var toneUri by remember { mutableStateOf(alarm?.toneUri ?: "") }
     var vibrate by remember { mutableStateOf(alarm?.vibrate ?: true) }
+    var muteInSilentMode by remember { mutableStateOf(alarm?.muteInSilentMode ?: false) }
+    var currentPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
 
@@ -257,38 +258,41 @@ fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) 
                     Switch(checked = vibrate, onCheckedChange = { vibrate = it })
                 }
 
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("كتم الصوت في الوضع الصامت", modifier = Modifier.weight(1f))
+                    Switch(checked = muteInSilentMode, onCheckedChange = { muteInSilentMode = it })
+                }
+
                 Text("النغمات المدمجة", style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     FilterChip(
                         selected = toneUri.contains("tone1"),
-                        onClick = { toneUri = "android.resource://${context.packageName}/raw/tone1" },
+                        onClick = {
+                            toneUri = "android.resource://${context.packageName}/raw/tone1"
+                            currentPlayer?.release()
+                            currentPlayer = try {
+                                MediaPlayer.create(context, R.raw.tone1)?.apply {
+                                    setOnCompletionListener { release(); currentPlayer = null }
+                                    start()
+                                }
+                            } catch (_: Exception) { null }
+                        },
                         label = { Text("نغمة 1") }
                     )
-                    IconButton(onClick = {
-                        try {
-                            MediaPlayer.create(context, R.raw.tone1)?.apply {
-                                setOnCompletionListener { release() }
-                                start()
-                            }
-                        } catch (_: Exception) { }
-                    }) {
-                        Icon(Icons.Default.PlayArrow, "استماع", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                    }
                     FilterChip(
                         selected = toneUri.contains("tone2"),
-                        onClick = { toneUri = "android.resource://${context.packageName}/raw/tone2" },
+                        onClick = {
+                            toneUri = "android.resource://${context.packageName}/raw/tone2"
+                            currentPlayer?.release()
+                            currentPlayer = try {
+                                MediaPlayer.create(context, R.raw.tone2)?.apply {
+                                    setOnCompletionListener { release(); currentPlayer = null }
+                                    start()
+                                }
+                            } catch (_: Exception) { null }
+                        },
                         label = { Text("نغمة 2") }
                     )
-                    IconButton(onClick = {
-                        try {
-                            MediaPlayer.create(context, R.raw.tone2)?.apply {
-                                setOnCompletionListener { release() }
-                                start()
-                            }
-                        } catch (_: Exception) { }
-                    }) {
-                        Icon(Icons.Default.PlayArrow, "استماع", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                    }
                 }
 
                 OutlinedButton(
@@ -323,7 +327,8 @@ fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) 
                         isScheduled = isScheduled,
                         label = label,
                         toneUri = toneUri,
-                        vibrate = vibrate
+                        vibrate = vibrate,
+                        muteInSilentMode = muteInSilentMode
                     )
                 )
             }) { Text(if (alarm != null) "حفظ التعديل" else "حفظ") }

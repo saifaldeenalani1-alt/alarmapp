@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
@@ -45,7 +46,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 }
             }
 
-            showAlarmNotification(context, alarmId, alarm.label, alarm.toneUri, alarm.vibrate)
+            showAlarmNotification(context, alarmId, alarm.label, alarm.toneUri, alarm.vibrate, alarm.muteInSilentMode)
 
             val nextCal = Calendar.getInstance()
             nextCal.add(Calendar.MINUTE, alarm.intervalMinutes)
@@ -76,16 +77,9 @@ class AlarmReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun showAlarmNotification(context: Context, alarmId: String, label: String, toneUri: String, vibrate: Boolean) {
+    private fun showAlarmNotification(context: Context, alarmId: String, label: String, toneUri: String, vibrate: Boolean, muteInSilent: Boolean) {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        val soundUri: Uri = if (toneUri.isNotEmpty()) {
-            Uri.parse(toneUri)
-        } else {
-            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-        }
-
-        // Recreate channel with correct sound (on Android 8+, channel overrides notification sound)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             notificationManager.deleteNotificationChannel(AlarmApp.CHANNEL_ALARM)
             val channel = android.app.NotificationChannel(
@@ -93,11 +87,8 @@ class AlarmReceiver : BroadcastReceiver() {
                 "تنبيهات المنبه",
                 android.app.NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "قناة تنبيهات المنبه والصوت"
-                setSound(soundUri, android.media.AudioAttributes.Builder()
-                    .setUsage(android.media.AudioAttributes.USAGE_ALARM)
-                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build())
+                description = "قناة تنبيهات المنبه"
+                setSound(null, null)
                 enableVibration(vibrate)
                 if (vibrate) {
                     vibrationPattern = longArrayOf(0, 500, 200, 500)
@@ -129,11 +120,58 @@ class AlarmReceiver : BroadcastReceiver() {
             NotificationManagerCompat.from(context).notify(alarmId.hashCode(), notification)
         } catch (_: SecurityException) { }
 
-        // Auto-dismiss notification after 10 seconds
+        // Play sound via MediaPlayer directly (more reliable than notification channel sound)
+        val shouldPlay = if (muteInSilent && isDndActive(context)) {
+            false
+        } else {
+            true
+        }
+        if (shouldPlay) {
+            playAlarmSound(context, toneUri)
+        }
+
+        // Auto-dismiss notification and stop sound after 10 seconds
         Handler(Looper.getMainLooper()).postDelayed({
             try {
                 notificationManager.cancel(alarmId.hashCode())
+                stopAlarmSound()
             } catch (_: Exception) { }
         }, 10_000L)
+    }
+
+    private fun isDndActive(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            return nm.currentInterruptionFilter == NotificationManager.INTERRUPTION_FILTER_NONE ||
+                   nm.currentInterruptionFilter == NotificationManager.INTERRUPTION_FILTER_ALARMS
+        }
+        return false
+    }
+
+    private fun playAlarmSound(context: Context, toneUri: String) {
+        stopAlarmSound()
+        try {
+            val uri = if (toneUri.isNotEmpty()) {
+                Uri.parse(toneUri)
+            } else {
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            }
+            currentPlayer = MediaPlayer.create(context, uri)?.apply {
+                isLooping = true
+                start()
+            }
+        } catch (_: Exception) { }
+    }
+
+    companion object {
+        private var currentPlayer: MediaPlayer? = null
+
+        fun stopAlarmSound() {
+            currentPlayer?.apply {
+                if (isPlaying) stop()
+                release()
+            }
+            currentPlayer = null
+        }
     }
 }
