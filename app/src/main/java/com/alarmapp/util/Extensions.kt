@@ -27,30 +27,64 @@ object AlarmScheduler {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val cal = Calendar.getInstance()
-        cal.set(Calendar.HOUR_OF_DAY, alarm.startHour)
-        cal.set(Calendar.MINUTE, alarm.startMinute)
-        cal.set(Calendar.SECOND, 0)
+        val now = Calendar.getInstance()
+        val intervalMillis = alarm.intervalMinutes * 60 * 1000L
 
-        if (cal.timeInMillis <= System.currentTimeMillis()) {
-            cal.add(Calendar.DAY_OF_YEAR, 1)
-        }
+        var nextTime: Long
 
         if (alarm.isScheduled) {
-            val endCal = Calendar.getInstance()
-            endCal.set(Calendar.HOUR_OF_DAY, alarm.endHour)
-            endCal.set(Calendar.MINUTE, alarm.endMinute)
-            if (endCal.timeInMillis <= cal.timeInMillis) {
+            val startCal = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, alarm.startHour)
+                set(Calendar.MINUTE, alarm.startMinute)
+                set(Calendar.SECOND, 0)
+            }
+            val endCal = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, alarm.endHour)
+                set(Calendar.MINUTE, alarm.endMinute)
+                set(Calendar.SECOND, 0)
+            }
+
+            if (endCal.before(startCal)) {
                 endCal.add(Calendar.DAY_OF_YEAR, 1)
             }
+
+            val startMs = startCal.timeInMillis
+            val endMs = endCal.timeInMillis
+
+            if (now.timeInMillis < startMs) {
+                nextTime = startMs
+            } else if (now.timeInMillis in startMs..endMs) {
+                val elapsed = now.timeInMillis - startMs
+                val intervals = elapsed / intervalMillis
+                nextTime = startMs + (intervals + 1) * intervalMillis
+                if (nextTime > endMs) {
+                    nextTime = startMs + Calendar.DAY_OF_YEAR.toLong() * 24 * 60 * 60 * 1000
+                }
+            } else {
+                nextTime = startMs + Calendar.DAY_OF_YEAR.toLong() * 24 * 60 * 60 * 1000
+            }
+        } else {
+            val cal = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, alarm.startHour)
+                set(Calendar.MINUTE, alarm.startMinute)
+                set(Calendar.SECOND, 0)
+            }
+            if (cal.timeInMillis <= now.timeInMillis) {
+                cal.add(Calendar.DAY_OF_YEAR, 1)
+            }
+            nextTime = cal.timeInMillis
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP, cal.timeInMillis, pendingIntent
-            )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (!alarmManager.canScheduleExactAlarms()) {
+                alarmManager.set(AlarmManager.RTC_WAKEUP, nextTime, pendingIntent)
+            } else {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextTime, pendingIntent)
+            }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextTime, pendingIntent)
         } else {
-            alarmManager.setExact(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pendingIntent)
+            alarmManager.setExact(AlarmManager.RTC_WAKEUP, nextTime, pendingIntent)
         }
     }
 

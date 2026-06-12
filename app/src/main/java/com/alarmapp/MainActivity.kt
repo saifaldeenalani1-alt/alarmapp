@@ -1,6 +1,7 @@
 package com.alarmapp
 
 import android.Manifest
+import android.app.AlarmManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -56,14 +57,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestRequiredPermissions() {
-        val permissions = mutableListOf(
-            Manifest.permission.POST_NOTIFICATIONS,
-            Manifest.permission.SCHEDULE_EXACT_ALARM
-        )
+        val permissions = mutableListOf<String>()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions.add(Manifest.permission.POST_NOTIFICATIONS)
         }
+
+        if (permissions.isEmpty()) return
 
         val needed = permissions.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
