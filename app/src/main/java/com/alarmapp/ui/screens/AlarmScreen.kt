@@ -171,13 +171,15 @@ fun AlarmCard(alarm: Alarm, onToggle: () -> Unit, onEdit: () -> Unit, onDelete: 
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) -> Unit) {
     val context = LocalContext.current
     var intervalMinutes by remember { mutableIntStateOf(alarm?.intervalMinutes ?: 60) }
     var startHour by remember { mutableIntStateOf(alarm?.startHour ?: 8) }
     var startMinute by remember { mutableIntStateOf(alarm?.startMinute ?: 0) }
+    var endHour by remember { mutableIntStateOf(alarm?.endHour ?: 22) }
+    var endMinute by remember { mutableIntStateOf(alarm?.endMinute ?: 0) }
     var repeatDays by remember { mutableStateOf(alarm?.repeatDays ?: emptySet()) }
     var label by remember { mutableStateOf(alarm?.label ?: "") }
     var toneUri by remember { mutableStateOf(alarm?.toneUri ?: "") }
@@ -185,6 +187,7 @@ fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) 
     var muteInSilentMode by remember { mutableStateOf(alarm?.muteInSilentMode ?: false) }
     var currentPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
     var showStartTimePicker by remember { mutableStateOf(false) }
+    var showEndTimePicker by remember { mutableStateOf(false) }
 
     val isRepeating = repeatDays.isNotEmpty()
     val dayNames = listOf("الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت")
@@ -231,6 +234,13 @@ fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) 
                 }
 
                 if (isRepeating) {
+                    OutlinedButton(
+                        onClick = { showEndTimePicker = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("مدى العمل حتى ${"%02d".format(endHour)}:${"%02d".format(endMinute)}")
+                    }
+
                     Text("أيام التكرار", style = MaterialTheme.typography.bodyMedium)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         dayValues.forEachIndexed { i, dayValue ->
@@ -337,6 +347,8 @@ fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) 
                         intervalMinutes = intervalMinutes,
                         startHour = startHour,
                         startMinute = startMinute,
+                        endHour = endHour,
+                        endMinute = endMinute,
                         repeatDays = repeatDays,
                         label = label,
                         toneUri = toneUri,
@@ -356,6 +368,14 @@ fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) 
             context,
             { _, h, m -> startHour = h; startMinute = m; showStartTimePicker = false },
             startHour, startMinute, true
+        ).show()
+    }
+
+    if (showEndTimePicker) {
+        TimePickerDialog(
+            context,
+            { _, h, m -> endHour = h; endMinute = m; showEndTimePicker = false },
+            endHour, endMinute, true
         ).show()
     }
 }

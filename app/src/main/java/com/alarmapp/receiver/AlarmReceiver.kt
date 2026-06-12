@@ -26,11 +26,21 @@ class AlarmReceiver : BroadcastReceiver() {
         val alarm = alarms.find { it.id == alarmId } ?: return
         if (!alarm.isEnabled) return
 
-        // For repeating alarms, check if today is a repeat day
+        // For repeating alarms, check if today is a repeat day and within window
         if (alarm.repeatDays.isNotEmpty()) {
-            val today = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
+            val now = Calendar.getInstance()
+            val today = now.get(Calendar.DAY_OF_WEEK)
             if (today !in alarm.repeatDays) {
-                // Not a repeat day, schedule next occurrence
+                AlarmScheduler.scheduleAlarm(context, alarm)
+                return
+            }
+            val endCal = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, alarm.endHour)
+                set(Calendar.MINUTE, alarm.endMinute)
+                set(Calendar.SECOND, 0)
+            }
+            if (now.after(endCal)) {
+                // Past the daily window, schedule next repeat day
                 AlarmScheduler.scheduleAlarm(context, alarm)
                 return
             }

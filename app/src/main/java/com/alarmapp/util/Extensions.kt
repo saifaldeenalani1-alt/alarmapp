@@ -41,32 +41,65 @@ object AlarmScheduler {
         }
     }
 
-    private fun nextAlarmMillis(alarm: Alarm): Long {
-        val now = Calendar.getInstance()
-        val todayCal = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, alarm.startHour)
-            set(Calendar.MINUTE, alarm.startMinute)
+    private fun nextAlarmMillis(alarm: Alarm, fromTime: Calendar = Calendar.getInstance()): Long {
+        val now = fromTime
+        val intervalMs = alarm.intervalMinutes * 60 * 1000L
+
+        fun makeCal(h: Int, m: Int) = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, h)
+            set(Calendar.MINUTE, m)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }
 
-        if (alarm.repeatDays.isNotEmpty()) {
-            if (alarm.repeatDays.contains(now.get(Calendar.DAY_OF_WEEK)) && todayCal.timeInMillis > now.timeInMillis) {
-                return todayCal.timeInMillis
-            }
-            for (i in 1..7) {
-                todayCal.add(Calendar.DAY_OF_YEAR, 1)
-                if (alarm.repeatDays.contains(todayCal.get(Calendar.DAY_OF_WEEK))) {
-                    return todayCal.timeInMillis
+        val startMs: (Calendar) -> Long = { makeCal(alarm.startHour, alarm.startMinute).timeInMillis }
+        val endMs: (Calendar) -> Long = { makeCal(alarm.endHour, alarm.endMinute).timeInMillis }
+
+        fun nextRepeatDay(afterCal: Calendar): Long {
+            val cal = afterCal.clone() as Calendar
+            for (i in 0..7) {
+                if (i > 0) cal.add(Calendar.DAY_OF_YEAR, 1)
+                if (alarm.repeatDays.contains(cal.get(Calendar.DAY_OF_WEEK))) {
+                    val s = makeCal(alarm.startHour, alarm.startMinute).apply {
+                        set(Calendar.YEAR, cal.get(Calendar.YEAR))
+                        set(Calendar.DAY_OF_YEAR, cal.get(Calendar.DAY_OF_YEAR))
+                    }
+                    return s.timeInMillis
                 }
             }
-            return todayCal.timeInMillis
+            return makeCal(alarm.startHour, alarm.startMinute)
+                .apply { add(Calendar.DAY_OF_YEAR, 8) }.timeInMillis
         }
 
-        if (todayCal.timeInMillis <= now.timeInMillis) {
-            todayCal.add(Calendar.DAY_OF_YEAR, 1)
+        if (alarm.repeatDays.isNotEmpty()) {
+            val today = now.clone() as Calendar
+            val todayMs = today.timeInMillis
+            val sToday = makeCal(alarm.startHour, alarm.startMinute).apply {
+                set(Calendar.YEAR, today.get(Calendar.YEAR))
+                set(Calendar.DAY_OF_YEAR, today.get(Calendar.DAY_OF_YEAR))
+            }
+            val eToday = makeCal(alarm.endHour, alarm.endMinute).apply {
+                set(Calendar.YEAR, today.get(Calendar.YEAR))
+                set(Calendar.DAY_OF_YEAR, today.get(Calendar.DAY_OF_YEAR))
+            }
+            if (eToday.before(sToday)) eToday.add(Calendar.DAY_OF_YEAR, 1)
+
+            val dayOfWeek = today.get(Calendar.DAY_OF_WEEK)
+            if (dayOfWeek in alarm.repeatDays) {
+                if (todayMs < sToday.timeInMillis) return sToday.timeInMillis
+                if (todayMs in sToday.timeInMillis..eToday.timeInMillis) {
+                    val elapsed = todayMs - sToday.timeInMillis
+                    val intervals = elapsed / intervalMs
+                    val nextInWindow = sToday.timeInMillis + (intervals + 1) * intervalMs
+                    if (nextInWindow <= eToday.timeInMillis) return nextInWindow
+                }
+            }
+            return nextRepeatDay(today)
         }
-        return todayCal.timeInMillis
+
+        val single = makeCal(alarm.startHour, alarm.startMinute)
+        if (single.timeInMillis <= now.timeInMillis) single.add(Calendar.DAY_OF_YEAR, 1)
+        return single.timeInMillis
     }
 
     fun cancelAlarm(context: Context, alarm: Alarm) {
