@@ -102,6 +102,10 @@ fun AlarmScreen() {
             alarm = editingAlarm,
             onDismiss = { showAddDialog = false; editingAlarm = null },
             onSave = { alarm ->
+                // Cancel using original alarm config so old PendingIntents match
+                if (editingAlarm != null && editingAlarm!!.id == alarm.id) {
+                    AlarmScheduler.cancelAlarm(context, editingAlarm!!)
+                }
                 prefs.saveAlarm(alarm)
                 if (alarm.isEnabled) {
                     AlarmScheduler.scheduleAlarm(context, alarm)

@@ -67,7 +67,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
             // Play tone via MediaPlayer (each alarm gets its own player)
             if (!alarm.muteInSilentMode || !isDndActive(context)) {
-                playTone(context, alarmId, alarm.toneUri)
+                playTone(context, alarmId, alarm.toneUri, alarmId.hashCode())
             }
         } finally {
             if (wakeLock.isHeld) wakeLock.release()
@@ -83,7 +83,7 @@ class AlarmReceiver : BroadcastReceiver() {
         return false
     }
 
-    private fun playTone(context: Context, alarmId: String, toneUri: String) {
+    private fun playTone(context: Context, alarmId: String, toneUri: String, notificationId: Int) {
         try {
             val uri = if (toneUri.isNotEmpty())
                 Uri.parse(toneUri)
@@ -95,6 +95,9 @@ class AlarmReceiver : BroadcastReceiver() {
             player.setOnCompletionListener {
                 player.release()
                 players.remove(alarmId)
+                try {
+                    NotificationManagerCompat.from(context).cancel(notificationId)
+                } catch (_: Exception) { }
             }
             player.start()
         } catch (_: Exception) { }
