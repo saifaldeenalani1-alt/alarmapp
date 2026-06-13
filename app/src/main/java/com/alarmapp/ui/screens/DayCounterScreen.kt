@@ -1,7 +1,10 @@
 package com.alarmapp.ui.screens
 
+import android.app.AlarmManager
 import android.app.DatePickerDialog
-import android.appwidget.AppWidgetManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,9 +21,42 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.alarmapp.data.PreferencesManager
 import com.alarmapp.model.DayCounterEvent
-import com.alarmapp.ui.components.ColorPickerGrid
+import com.alarmapp.receiver.DayCounterReceiver
 import com.alarmapp.util.formatDateFull
 import java.util.Calendar
+
+private fun scheduleEventNotification(context: Context, event: DayCounterEvent) {
+    if (!event.isCountdown || !event.notifyOnComplete) return
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    val requestCode = event.id.hashCode()
+    val intent = Intent(context, DayCounterReceiver::class.java).apply {
+        putExtra("event_id", event.id)
+        putExtra("event_name", event.name)
+    }
+    val pi = PendingIntent.getBroadcast(
+        context, requestCode, intent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+    val cal = Calendar.getInstance().apply { timeInMillis = event.date }
+    cal.set(Calendar.HOUR_OF_DAY, 12)
+    cal.set(Calendar.MINUTE, 0)
+    cal.set(Calendar.SECOND, 0)
+    cal.set(Calendar.MILLISECOND, 0)
+    alarmManager.set(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
+}
+
+private fun cancelEventNotification(context: Context, eventId: String) {
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    val intent = Intent(context, DayCounterReceiver::class.java)
+    val pi = PendingIntent.getBroadcast(
+        context, eventId.hashCode(), intent,
+        PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+    )
+    pi?.let {
+        alarmManager.cancel(it)
+        it.cancel()
+    }
+}
 
 @Composable
 fun DayCounterScreen() {
@@ -31,18 +67,6 @@ fun DayCounterScreen() {
     var editingEvent by remember { mutableStateOf<DayCounterEvent?>(null) }
 
     fun refresh() { events = prefs.getEvents() }
-
-    fun updateWidgets() {
-        val ids = AppWidgetManager.getInstance(context)
-            .getAppWidgetIds(android.content.ComponentName(context, com.alarmapp.widget.DayCounterWidget::class.java))
-        if (ids.isNotEmpty()) {
-            val updateIntent = android.content.Intent(context, com.alarmapp.widget.DayCounterWidget::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
-            }
-            context.sendBroadcast(updateIntent)
-        }
-    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (events.isEmpty()) {
@@ -64,6 +88,7 @@ fun DayCounterScreen() {
                         event = event,
                         onEdit = { editingEvent = event; showDialog = true },
                         onDelete = {
+                            cancelEventNotification(context, event.id)
                             prefs.deleteEvent(event.id)
                             refresh()
                         }
@@ -87,11 +112,12 @@ fun DayCounterScreen() {
             event = editingEvent,
             onDismiss = { showDialog = false; editingEvent = null },
             onSave = { event ->
+                cancelEventNotification(context, event.id)
                 prefs.saveEvent(event)
+                scheduleEventNotification(context, event)
                 refresh()
                 showDialog = false
                 editingEvent = null
-                updateWidgets()
             }
         )
     }
@@ -127,7 +153,7 @@ fun EventCard(event: DayCounterEvent, onEdit: () -> Unit, onDelete: () -> Unit) 
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = if (event.isCountdown) "متبقي" else "مضى",
+                    text = if (event.notifyOnComplete) "متبقي (تنبيه عند الانتهاء)" else if (event.isCountdown) "متبقي" else "مضى",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -162,11 +188,8 @@ fun AddEventDialog(event: DayCounterEvent? = null, onDismiss: () -> Unit, onSave
     var name by remember { mutableStateOf(event?.name ?: "") }
     var selectedDateMillis by remember { mutableStateOf(event?.date ?: System.currentTimeMillis()) }
     var isCountdown by remember { mutableStateOf(event?.isCountdown ?: true) }
+    var notifyOnComplete by remember { mutableStateOf(event?.notifyOnComplete ?: false) }
     var dateText by remember { mutableStateOf(formatDateFull(event?.date ?: System.currentTimeMillis())) }
-    var widgetTextColor by remember { mutableStateOf(event?.widgetTextColor ?: 0xFFFFFFFF.toInt()) }
-    var widgetBgColor by remember { mutableStateOf(event?.widgetBgColor ?: 0xCC000000.toInt()) }
-    var widgetFontSize by remember { mutableStateOf(event?.widgetFontSize ?: 32) }
-    var widgetBgTransparency by remember { mutableStateOf(event?.widgetBgTransparency ?: 80) }
     val isEdit = event != null
 
     AlertDialog(
@@ -216,34 +239,14 @@ fun AddEventDialog(event: DayCounterEvent? = null, onDismiss: () -> Unit, onSave
                     ) { Text("تصاعدي (مضى)") }
                 }
 
-                Text("تخصيص الـ widget", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Text("لون الخط", style = MaterialTheme.typography.bodySmall)
-                ColorPickerGrid(selectedColor = widgetTextColor, onColorSelected = { widgetTextColor = it })
-                Spacer(Modifier.height(4.dp))
-                Text("لون الخلفية", style = MaterialTheme.typography.bodySmall)
-                ColorPickerGrid(selectedColor = widgetBgColor, onColorSelected = { widgetBgColor = it })
-
-                Spacer(Modifier.height(8.dp))
-                Text("حجم خط الأيام", style = MaterialTheme.typography.bodySmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(24 to "صغير", 32 to "متوسط", 40 to "كبير", 48 to "كبير جداً").forEach { (size, label) ->
-                        FilterChip(
-                            selected = widgetFontSize == size,
-                            onClick = { widgetFontSize = size },
-                            label = { Text(label) }
-                        )
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("تنبيه عند انتهاء العداد", modifier = Modifier.weight(1f))
+                    Switch(
+                        checked = notifyOnComplete,
+                        onCheckedChange = { notifyOnComplete = it },
+                        enabled = isCountdown
+                    )
                 }
-
-                Spacer(Modifier.height(8.dp))
-                Text("شفافية الخلفية", style = MaterialTheme.typography.bodySmall)
-                Text("${widgetBgTransparency}%", style = MaterialTheme.typography.bodyLarge)
-                Slider(
-                    value = widgetBgTransparency.toFloat(),
-                    onValueChange = { widgetBgTransparency = it.toInt() },
-                    valueRange = 20f..100f,
-                    steps = 7
-                )
             }
         },
         confirmButton = {
@@ -256,11 +259,7 @@ fun AddEventDialog(event: DayCounterEvent? = null, onDismiss: () -> Unit, onSave
                             name = name,
                             date = selectedDateMillis,
                             isCountdown = isCountdown,
-                            widgetId = event?.widgetId ?: -1,
-                            widgetTextColor = widgetTextColor,
-                            widgetBgColor = widgetBgColor,
-                            widgetFontSize = widgetFontSize,
-                            widgetBgTransparency = widgetBgTransparency
+                            notifyOnComplete = notifyOnComplete
                         )
                     )
                 }

@@ -66,26 +66,8 @@
         </receiver>
 
         <receiver
-            android:name=".widget.DayCounterWidget"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_info" />
-        </receiver>
-
-        <receiver
-            android:name=".widget.ClockWidget"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_clock_info" />
-        </receiver>
+            android:name=".receiver.DayCounterReceiver"
+            android:exported="false" />
 
     </application>
 

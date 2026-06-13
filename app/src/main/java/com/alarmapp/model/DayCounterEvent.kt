@@ -5,9 +5,5 @@ data class DayCounterEvent(
     val name: String,
     val date: Long,
     val isCountdown: Boolean = true,
-    val widgetId: Int = -1,
-    val widgetTextColor: Int = 0xFFFFFFFF.toInt(),
-    val widgetBgColor: Int = 0xCC000000.toInt(),
-    val widgetFontSize: Int = 32,
-    val widgetBgTransparency: Int = 80
+    val notifyOnComplete: Boolean = false
 )
