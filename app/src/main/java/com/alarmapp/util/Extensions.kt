@@ -30,13 +30,19 @@ object AlarmScheduler {
         val now = System.currentTimeMillis()
         if (nextTime <= now) nextTime = now + 60_000L
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+        val canScheduleExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            alarmManager.canScheduleExactAlarms()
+        } else true
+
+        if (canScheduleExact && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextTime, pendingIntent)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             alarmManager.setAlarmClock(
                 AlarmManager.AlarmClockInfo(nextTime, pendingIntent),
                 pendingIntent
             )
         } else {
-            alarmManager.setExact(AlarmManager.RTC_WAKEUP, nextTime, pendingIntent)
+            alarmManager.set(AlarmManager.RTC_WAKEUP, nextTime, pendingIntent)
         }
     }
 

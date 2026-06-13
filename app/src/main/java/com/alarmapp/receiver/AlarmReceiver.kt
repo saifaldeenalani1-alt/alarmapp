@@ -48,18 +48,19 @@ class AlarmReceiver : BroadcastReceiver() {
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            notificationManager.deleteNotificationChannel(AlarmApp.CHANNEL_ALARM)
-            val channel = android.app.NotificationChannel(
-                AlarmApp.CHANNEL_ALARM,
-                "تنبيهات المنبه",
-                android.app.NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "قناة تنبيهات المنبه"
-                setSound(null, null)
-                enableVibration(alarm.vibrate)
-                if (alarm.vibrate) vibrationPattern = longArrayOf(0, 500, 200, 500)
+            val existing = notificationManager.getNotificationChannel(AlarmApp.CHANNEL_ALARM)
+            if (existing == null) {
+                val channel = android.app.NotificationChannel(
+                    AlarmApp.CHANNEL_ALARM,
+                    "تنبيهات المنبه",
+                    android.app.NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "قناة تنبيهات المنبه"
+                    enableVibration(alarm.vibrate)
+                    if (alarm.vibrate) vibrationPattern = longArrayOf(0, 500, 200, 500)
+                }
+                notificationManager.createNotificationChannel(channel)
             }
-            notificationManager.createNotificationChannel(channel)
         }
 
         val openIntent = Intent(context, MainActivity::class.java).apply {
