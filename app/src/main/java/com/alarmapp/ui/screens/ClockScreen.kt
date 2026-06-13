@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.shape.RoundedCornerShape
 import kotlinx.coroutines.delay
 import java.util.Calendar
 import kotlin.math.cos
@@ -105,7 +106,7 @@ fun ClockScreen() {
                 val hourTickWidth = 2.5.dp.toPx()
                 val minuteTickWidth = 1.2.dp.toPx()
 
-                val arabicNumerals = listOf("١٢", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩", "١٠", "١١")
+                val englishNumerals = listOf("12", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11")
                 val paint = android.graphics.Paint().apply {
                     color = onSurface.hashCode()
                     textSize = radius * 0.13f
@@ -135,12 +136,12 @@ fun ClockScreen() {
                 }
 
                 for (i in 0 until 12) {
-                    val angle = Math.toRadians((i * 30).toDouble())
+                    val angle = Math.toRadians((i * 30 - 90).toDouble())
                     val numR = radius * 0.70f
                     val px = cx + numR * cos(angle).toFloat()
                     val py = cy + numR * sin(angle).toFloat()
                     drawContext.canvas.nativeCanvas.drawText(
-                        arabicNumerals[i],
+                        englishNumerals[i],
                         px,
                         py + paint.textSize * 0.35f,
                         paint
@@ -202,32 +203,25 @@ fun ClockScreen() {
                     style = Stroke(width = 1.dp.toPx())
                 )
 
-                val centerPaint = android.graphics.Paint().apply {
-                    color = onSurface.hashCode()
-                    textSize = radius * 0.13f
-                    textAlign = android.graphics.Paint.Align.CENTER
-                    typeface = android.graphics.Typeface.DEFAULT_BOLD
-                    isAntiAlias = true
-                }
-                val amPmPaint = android.graphics.Paint().apply {
-                    color = onSurfaceVariant.hashCode()
-                    textSize = radius * 0.06f
-                    textAlign = android.graphics.Paint.Align.CENTER
-                    typeface = android.graphics.Typeface.DEFAULT
-                    isAntiAlias = true
-                }
-                val timeStr = "%02d:%02d".format(displayHour, m)
-                drawContext.canvas.nativeCanvas.drawText(
-                    timeStr,
-                    cx,
-                    cy + centerPaint.textSize * 0.35f,
-                    centerPaint
-                )
-                drawContext.canvas.nativeCanvas.drawText(
-                    amPm,
-                    cx,
-                    cy + centerR * 0.8f,
-                    amPmPaint
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Box(
+                modifier = Modifier
+                    .background(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .padding(horizontal = 32.dp, vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "%02d:%02d:%02d %s".format(displayHour, m, s, amPm),
+                    fontSize = 28.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
                 )
             }
 
@@ -237,7 +231,7 @@ fun ClockScreen() {
                 modifier = Modifier
                     .background(
                         color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = CircleShape
+                        shape = RoundedCornerShape(8.dp)
                     )
                     .padding(horizontal = 24.dp, vertical = 10.dp),
                 contentAlignment = Alignment.Center

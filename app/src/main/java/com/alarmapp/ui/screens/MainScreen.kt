@@ -22,18 +22,16 @@ fun MainScreen(
 ) {
     var selectedTab by remember { mutableIntStateOf(1) }
 
-    val tabs = remember {
-        listOf(
-            TabItem("منبه", Icons.Default.Alarm) { AlarmScreen() },
-            TabItem("ساعة", Icons.Default.AccessTime) { ClockScreen() },
-            TabItem("مؤقت", Icons.Default.Timer) { TimerScreen() },
-            TabItem("أيام", Icons.Default.CalendarMonth) { DayCounterScreen() },
-            TabItem("إعدادات", Icons.Default.Settings) { SettingsScreen(
-                isDarkTheme = isDarkTheme,
-                onThemeChanged = onThemeChanged
-            ) }
-        )
-    }
+    val tabs = listOf(
+        TabItem("منبه", Icons.Default.Alarm) { AlarmScreen() },
+        TabItem("ساعة", Icons.Default.AccessTime) { ClockScreen() },
+        TabItem("مؤقت", Icons.Default.Timer) { TimerScreen() },
+        TabItem("أيام", Icons.Default.CalendarMonth) { DayCounterScreen() },
+        TabItem("إعدادات", Icons.Default.Settings) { SettingsScreen(
+            isDarkTheme = isDarkTheme,
+            onThemeChanged = onThemeChanged
+        ) }
+    )
 
     Scaffold(
         topBar = {
