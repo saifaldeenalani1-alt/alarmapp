@@ -65,8 +65,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 NotificationManagerCompat.from(context).notify(alarmId.hashCode(), notification)
             } catch (_: SecurityException) { }
 
-            // Play tone via MediaPlayer (each alarm gets its own player)
-            if (!alarm.muteInSilentMode || !isDndActive(context)) {
+            if (!alarm.muteInSilentMode || !isInSilentMode(context)) {
                 playTone(context, alarmId, alarm.toneUri, alarmId.hashCode())
             }
         } finally {
@@ -74,13 +73,13 @@ class AlarmReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun isDndActive(context: Context): Boolean {
+    private fun isInSilentMode(context: Context): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-            return nm.currentInterruptionFilter == android.app.NotificationManager.INTERRUPTION_FILTER_NONE ||
-                   nm.currentInterruptionFilter == android.app.NotificationManager.INTERRUPTION_FILTER_ALARMS
+            if (nm.currentInterruptionFilter == android.app.NotificationManager.INTERRUPTION_FILTER_NONE) return true
         }
-        return false
+        val am = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+        return am.ringerMode == android.media.AudioManager.RINGER_MODE_SILENT
     }
 
     private fun playTone(context: Context, alarmId: String, toneUri: String, notificationId: Int) {
