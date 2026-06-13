@@ -113,20 +113,18 @@ object AlarmScheduler {
     fun cancelAlarm(context: Context, alarm: Alarm) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val baseCode = alarm.id.hashCode() * SLOT_BASE
+        val slots = generateSlots(alarm, 2)
 
-        // Try all possible slot indices (cover full day range regardless of start/end/interval)
-        for (index in 0 until MAX_SLOTS) {
+        for ((index, _) in slots) {
             val intent = Intent(context, AlarmReceiver::class.java).apply {
                 putExtra("alarm_id", alarm.id)
                 putExtra("slot_index", index)
             }
             val pi = PendingIntent.getBroadcast(
                 context, baseCode + index, intent,
-                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            if (pi == null) continue
             alarmManager.cancel(pi)
-            pi.cancel()
         }
 
         val rIntent = Intent(context, AlarmReceiver::class.java).apply {
@@ -135,15 +133,10 @@ object AlarmScheduler {
         }
         val rPi = PendingIntent.getBroadcast(
             context, baseCode + RENEWAL_FLAG, rIntent,
-            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        rPi?.let {
-            alarmManager.cancel(it)
-            it.cancel()
-        }
+        alarmManager.cancel(rPi)
     }
-
-    private const val MAX_SLOTS = 5000
 
     fun renewBatch(context: Context, alarm: Alarm) {
         scheduleAlarm(context, alarm)
