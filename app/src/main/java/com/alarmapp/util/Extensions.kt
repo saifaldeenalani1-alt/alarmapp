@@ -36,13 +36,8 @@ object AlarmScheduler {
 
         if (canScheduleExact && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextTime, pendingIntent)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            alarmManager.setAlarmClock(
-                AlarmManager.AlarmClockInfo(nextTime, pendingIntent),
-                pendingIntent
-            )
         } else {
-            alarmManager.set(AlarmManager.RTC_WAKEUP, nextTime, pendingIntent)
+            alarmManager.setWindow(AlarmManager.RTC_WAKEUP, nextTime, 120_000L, pendingIntent)
         }
     }
 
