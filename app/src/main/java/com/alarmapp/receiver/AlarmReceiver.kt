@@ -1,20 +1,12 @@
 package com.alarmapp.receiver
 
-import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.media.MediaPlayer
-import android.media.RingtoneManager
-import android.net.Uri
+import android.media.AudioManager
 import android.os.Build
 import android.os.PowerManager
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
-import com.alarmapp.AlarmApp
-import com.alarmapp.MainActivity
-import com.alarmapp.util.AlarmScheduler
-import java.util.concurrent.ConcurrentHashMap
+import com.alarmapp.service.AlarmService
 
 class AlarmReceiver : BroadcastReceiver() {
 
@@ -22,16 +14,14 @@ class AlarmReceiver : BroadcastReceiver() {
         val alarmId = intent.getStringExtra("alarm_id") ?: return
         val slotIndex = intent.getIntExtra("slot_index", 0)
 
-        val wakeLock = (context.getSystemService(Context.POWER_SERVICE) as PowerManager)
+        val wl = (context.getSystemService(Context.POWER_SERVICE) as PowerManager)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AlarmApp:AlarmReceiver")
-        wakeLock.acquire(30_000L)
+        wl.acquire(5_000L)
 
         try {
-            // Renewal signal: schedule next batch of alarms
+            // Renewal signal: delegate to AlarmService
             if (slotIndex == -1) {
-                val prefs = com.alarmapp.data.PreferencesManager(context)
-                val alarm = prefs.getAlarms().find { it.id == alarmId } ?: return
-                if (alarm.isEnabled) AlarmScheduler.renewBatch(context, alarm)
+                AlarmService.startRenewal(context, alarmId)
                 return
             }
 
@@ -40,36 +30,11 @@ class AlarmReceiver : BroadcastReceiver() {
             val alarm = alarms.find { it.id == alarmId } ?: return
             if (!alarm.isEnabled) return
 
-            // Show notification (silent - sound played via MediaPlayer)
-            val notification = NotificationCompat.Builder(context, AlarmApp.CHANNEL_ALARM)
-                .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-                .setContentTitle(alarm.label.ifEmpty { "تنبيه" })
-                .setContentText("حان وقت التنبيه!")
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setCategory(NotificationCompat.CATEGORY_ALARM)
-                .setAutoCancel(true)
-                .setFullScreenIntent(
-                    PendingIntent.getActivity(
-                        context, 0,
-                        Intent(context, MainActivity::class.java).apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        },
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    ), true
-                )
-                .setVibrate(if (alarm.vibrate) longArrayOf(0, 500, 200, 500) else null)
-                .setTimeoutAfter(300_000L)
-                .build()
-
-            try {
-                NotificationManagerCompat.from(context).notify(alarmId.hashCode(), notification)
-            } catch (_: SecurityException) { }
-
             if (!alarm.muteInSilentMode || !isInSilentMode(context)) {
-                playTone(context, alarmId, alarm.toneUri, alarmId.hashCode())
+                AlarmService.startAlarm(context, alarmId, alarm.toneUri, alarm.vibrate, alarm.label)
             }
         } finally {
-            if (wakeLock.isHeld) wakeLock.release()
+            if (wl.isHeld) wl.release()
         }
     }
 
@@ -78,48 +43,7 @@ class AlarmReceiver : BroadcastReceiver() {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
             if (nm.currentInterruptionFilter == android.app.NotificationManager.INTERRUPTION_FILTER_NONE) return true
         }
-        val am = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
-        return am.ringerMode == android.media.AudioManager.RINGER_MODE_SILENT
-    }
-
-    private fun playTone(context: Context, alarmId: String, toneUri: String, notificationId: Int) {
-        try {
-            val uri = if (toneUri.isNotEmpty())
-                Uri.parse(toneUri)
-            else
-                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-
-            val player = MediaPlayer.create(context, uri) ?: return
-            players[alarmId] = player
-            player.setOnCompletionListener {
-                player.release()
-                players.remove(alarmId)
-                try {
-                    NotificationManagerCompat.from(context).cancel(notificationId)
-                } catch (_: Exception) { }
-            }
-            player.start()
-        } catch (_: Exception) { }
-    }
-
-    companion object {
-        private val players = ConcurrentHashMap<String, MediaPlayer>()
-
-        fun stopTone(alarmId: String) {
-            players.remove(alarmId)?.apply {
-                if (isPlaying) stop()
-                release()
-            }
-        }
-
-        fun stopAllTones() {
-            players.values.forEach { player ->
-                try {
-                    if (player.isPlaying) player.stop()
-                    player.release()
-                } catch (_: Exception) { }
-            }
-            players.clear()
-        }
+        val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        return am.ringerMode == AudioManager.RINGER_MODE_SILENT
     }
 }
