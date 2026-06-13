@@ -21,7 +21,6 @@ object AlarmScheduler {
         val intent = Intent(context, AlarmReceiver::class.java).apply {
             putExtra("alarm_id", alarm.id)
         }
-        cancelAlarm(context, alarm)
         val pendingIntent = PendingIntent.getBroadcast(
             context, alarm.id.hashCode(), intent,
             PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE
