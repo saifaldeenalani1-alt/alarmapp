@@ -194,8 +194,7 @@ fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) 
     val isRepeating = repeatDays.isNotEmpty()
     val dayNames = listOf("الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت")
     val dayValues = listOf(Calendar.SUNDAY, Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY, Calendar.THURSDAY, Calendar.FRIDAY, Calendar.SATURDAY)
-    val intervalOptions = listOf(5, 10, 15, 30, 60, 120, 180, 360, 720, 1440)
-    var expanded by remember { mutableStateOf(false) }
+    val step = 5
     val tonePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -257,25 +256,23 @@ fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) 
                         }
                     }
 
-                    Text("الفاصل الزمني")
-                    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+                    Text("الفاصل الزمني (دقيقة)")
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilledIconButton(onClick = { if (intervalMinutes > step) intervalMinutes -= step }) {
+                            Icon(Icons.Default.Remove, "تقليل")
+                        }
                         OutlinedTextField(
-                            value = "${intervalMinutes} دقيقة",
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                            value = intervalMinutes.toString(),
+                            onValueChange = { v ->
+                                val n = v.filter { it.isDigit() }.take(5).toIntOrNull()
+                                if (n != null) intervalMinutes = n.coerceIn(1, 1440)
+                            },
+                            singleLine = true,
+                            modifier = Modifier.width(100.dp),
+                            textStyle = LocalTextStyle.current.copy(textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                         )
-                        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                            intervalOptions.forEach { option ->
-                                DropdownMenuItem(
-                                    text = { Text("${option} دقيقة") },
-                                    onClick = {
-                                        intervalMinutes = option
-                                        expanded = false
-                                    }
-                                )
-                            }
+                        FilledIconButton(onClick = { if (intervalMinutes < 1440) intervalMinutes += step }) {
+                            Icon(Icons.Default.Add, "زيادة")
                         }
                     }
                 }
