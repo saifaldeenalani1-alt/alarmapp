@@ -36,8 +36,9 @@ class AlarmApp : Application() {
                 "تنبيهات المنبه",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "قناة تنبيهات المنبه والصوت"
+                description = "قناة تنبيهات المنبه"
                 enableVibration(true)
+                setSound(null, null)
             }
 
             val timerChannel = NotificationChannel(
