@@ -34,11 +34,11 @@ class AlarmService : Service() {
         val toneUriObj = if (toneUri.isNotEmpty()) Uri.parse(toneUri)
             else RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
 
+        val openIntent = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        }
         val fullScreenIntent = PendingIntent.getActivity(
-            this, 0,
-            Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            },
+            this, 0, openIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
