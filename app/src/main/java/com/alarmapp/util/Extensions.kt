@@ -14,101 +14,122 @@ import java.util.Calendar
 import java.util.Locale
 
 object AlarmScheduler {
+    private const val SLOT_BASE = 100000
+    private const val RENEWAL_FLAG = -1
 
     fun scheduleAlarm(context: Context, alarm: Alarm) {
         if (!alarm.isEnabled) return
+        cancelAlarm(context, alarm)
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(context, AlarmReceiver::class.java).apply {
-            putExtra("alarm_id", alarm.id)
-        }
-        val pendingIntent = PendingIntent.getBroadcast(
-            context, alarm.id.hashCode(), intent,
-            PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        var nextTime = nextAlarmMillis(alarm)
         val now = System.currentTimeMillis()
-        if (nextTime <= now) nextTime = now + 60_000L
+        val slots = generateSlots(alarm, 2)
+        val baseCode = alarm.id.hashCode() * SLOT_BASE
 
-        val canScheduleExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            alarmManager.canScheduleExactAlarms()
-        } else true
-
-        if (canScheduleExact && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextTime, pendingIntent)
-        } else {
-            alarmManager.setWindow(AlarmManager.RTC_WAKEUP, nextTime, 120_000L, pendingIntent)
+        for ((index, timeMs) in slots) {
+            if (timeMs <= now) continue
+            val intent = Intent(context, AlarmReceiver::class.java).apply {
+                putExtra("alarm_id", alarm.id)
+                putExtra("slot_index", index)
+            }
+            val pi = PendingIntent.getBroadcast(
+                context, baseCode + index, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.setWindow(AlarmManager.RTC_WAKEUP, timeMs, 120_000L, pi)
         }
+
+        scheduleRenewal(context, alarm, alarmManager, baseCode, slots.lastOrNull()?.second ?: now)
     }
 
-    private fun nextAlarmMillis(alarm: Alarm, fromTime: Calendar = Calendar.getInstance()): Long {
-        val now = fromTime
-        val intervalMs = alarm.intervalMinutes * 60 * 1000L
+    private fun scheduleRenewal(context: Context, alarm: Alarm, alarmManager: AlarmManager, baseCode: Int, lastSlotMs: Long) {
+        val cal = Calendar.getInstance().apply { timeInMillis = lastSlotMs }
+        cal.add(Calendar.MINUTE, 5)
+        val renewalTime = cal.timeInMillis
+        if (renewalTime <= System.currentTimeMillis()) return
+        val intent = Intent(context, AlarmReceiver::class.java).apply {
+            putExtra("alarm_id", alarm.id)
+            putExtra("slot_index", RENEWAL_FLAG)
+        }
+        val pi = PendingIntent.getBroadcast(
+            context, baseCode + RENEWAL_FLAG, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        alarmManager.setWindow(AlarmManager.RTC_WAKEUP, renewalTime, 120_000L, pi)
+    }
 
-        fun makeCal(h: Int, m: Int) = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, h)
-            set(Calendar.MINUTE, m)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
+    private fun generateSlots(alarm: Alarm, days: Int): List<Pair<Int, Long>> {
+        val now = Calendar.getInstance()
+        val slots = mutableListOf<Pair<Int, Long>>()
+        var slotIdx = 0
+
+        if (alarm.repeatDays.isEmpty()) {
+            val cal = makeCal(alarm.startHour, alarm.startMinute)
+            if (cal.timeInMillis <= now.timeInMillis) cal.add(Calendar.DAY_OF_YEAR, 1)
+            slots.add(slotIdx++ to cal.timeInMillis)
+            return slots
         }
 
-        fun nextRepeatDay(afterCal: Calendar): Long {
-            val cal = afterCal.clone() as Calendar
-            for (i in 1..7) {
-                cal.add(Calendar.DAY_OF_YEAR, 1)
-                if (alarm.repeatDays.contains(cal.get(Calendar.DAY_OF_WEEK))) {
-                    val s = makeCal(alarm.startHour, alarm.startMinute).apply {
-                        set(Calendar.YEAR, cal.get(Calendar.YEAR))
-                        set(Calendar.DAY_OF_YEAR, cal.get(Calendar.DAY_OF_YEAR))
-                    }
-                    return s.timeInMillis
-                }
+        for (d in 0 until days) {
+            val day = now.clone() as Calendar
+            day.add(Calendar.DAY_OF_YEAR, d)
+            if (day.get(Calendar.DAY_OF_WEEK) !in alarm.repeatDays) continue
+
+            val sDay = makeCal(alarm.startHour, alarm.startMinute).apply {
+                set(Calendar.YEAR, day.get(Calendar.YEAR))
+                set(Calendar.DAY_OF_YEAR, day.get(Calendar.DAY_OF_YEAR))
             }
-            return makeCal(alarm.startHour, alarm.startMinute)
-                .apply { add(Calendar.DAY_OF_YEAR, 8) }.timeInMillis
+            val eDay = makeCal(alarm.endHour, alarm.endMinute).apply {
+                set(Calendar.YEAR, day.get(Calendar.YEAR))
+                set(Calendar.DAY_OF_YEAR, day.get(Calendar.DAY_OF_YEAR))
+            }
+            if (eDay.before(sDay)) eDay.add(Calendar.DAY_OF_YEAR, 1)
+
+            var t = sDay.timeInMillis
+            while (t < eDay.timeInMillis) {
+                slots.add(slotIdx++ to t)
+                t += alarm.intervalMinutes * 60_000L
+            }
         }
+        return slots
+    }
 
-        if (alarm.repeatDays.isNotEmpty()) {
-            val today = now.clone() as Calendar
-            val todayMs = today.timeInMillis
-            val sToday = makeCal(alarm.startHour, alarm.startMinute).apply {
-                set(Calendar.YEAR, today.get(Calendar.YEAR))
-                set(Calendar.DAY_OF_YEAR, today.get(Calendar.DAY_OF_YEAR))
-            }
-            val eToday = makeCal(alarm.endHour, alarm.endMinute).apply {
-                set(Calendar.YEAR, today.get(Calendar.YEAR))
-                set(Calendar.DAY_OF_YEAR, today.get(Calendar.DAY_OF_YEAR))
-            }
-            if (eToday.before(sToday)) eToday.add(Calendar.DAY_OF_YEAR, 1)
-
-            val dayOfWeek = today.get(Calendar.DAY_OF_WEEK)
-            if (dayOfWeek in alarm.repeatDays) {
-                if (todayMs < sToday.timeInMillis) return sToday.timeInMillis
-                if (todayMs in sToday.timeInMillis..eToday.timeInMillis) {
-                    val elapsed = todayMs - sToday.timeInMillis
-                    val intervals = elapsed / intervalMs
-                    val nextInWindow = sToday.timeInMillis + (intervals + 1) * intervalMs
-                    if (nextInWindow <= eToday.timeInMillis) return nextInWindow
-                }
-            }
-            return nextRepeatDay(today)
-        }
-
-        val single = makeCal(alarm.startHour, alarm.startMinute)
-        if (single.timeInMillis <= now.timeInMillis) single.add(Calendar.DAY_OF_YEAR, 1)
-        return single.timeInMillis
+    private fun makeCal(h: Int, m: Int) = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, h)
+        set(Calendar.MINUTE, m)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
     }
 
     fun cancelAlarm(context: Context, alarm: Alarm) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(context, AlarmReceiver::class.java).apply {
-            putExtra("alarm_id", alarm.id)
+        val baseCode = alarm.id.hashCode() * SLOT_BASE
+        val slots = generateSlots(alarm, 2)
+
+        for ((index, _) in slots) {
+            val intent = Intent(context, AlarmReceiver::class.java).apply {
+                putExtra("alarm_id", alarm.id)
+                putExtra("slot_index", index)
+            }
+            val pi = PendingIntent.getBroadcast(
+                context, baseCode + index, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.cancel(pi)
         }
-        val pendingIntent = PendingIntent.getBroadcast(
-            context, alarm.id.hashCode(), intent,
+
+        val rIntent = Intent(context, AlarmReceiver::class.java).apply {
+            putExtra("alarm_id", alarm.id)
+            putExtra("slot_index", RENEWAL_FLAG)
+        }
+        val rPi = PendingIntent.getBroadcast(
+            context, baseCode + RENEWAL_FLAG, rIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        alarmManager.cancel(pendingIntent)
+        alarmManager.cancel(rPi)
+    }
+
+    fun renewBatch(context: Context, alarm: Alarm) {
+        scheduleAlarm(context, alarm)
     }
 
     fun formatTime(seconds: Long): String {

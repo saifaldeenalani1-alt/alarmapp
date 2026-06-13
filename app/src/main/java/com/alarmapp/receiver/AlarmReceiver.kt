@@ -21,30 +21,20 @@ class AlarmReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val alarmId = intent.getStringExtra("alarm_id") ?: return
+        val slotIndex = intent.getIntExtra("slot_index", 0)
+
+        // Renewal signal: schedule next batch of alarms
+        if (slotIndex == -1) {
+            val prefs = com.alarmapp.data.PreferencesManager(context)
+            val alarm = prefs.getAlarms().find { it.id == alarmId } ?: return
+            if (alarm.isEnabled) AlarmScheduler.renewBatch(context, alarm)
+            return
+        }
+
         val prefs = com.alarmapp.data.PreferencesManager(context)
         val alarms = prefs.getAlarms()
         val alarm = alarms.find { it.id == alarmId } ?: return
         if (!alarm.isEnabled) return
-
-        // For repeating alarms, check if today is a repeat day and within window
-        if (alarm.repeatDays.isNotEmpty()) {
-            val now = Calendar.getInstance()
-            val today = now.get(Calendar.DAY_OF_WEEK)
-            if (today !in alarm.repeatDays) {
-                AlarmScheduler.scheduleAlarm(context, alarm)
-                return
-            }
-            val endCal = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, alarm.endHour)
-                set(Calendar.MINUTE, alarm.endMinute)
-                set(Calendar.SECOND, 0)
-            }
-            if (now.after(endCal)) {
-                // Past the daily window, schedule next repeat day
-                AlarmScheduler.scheduleAlarm(context, alarm)
-                return
-            }
-        }
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -86,16 +76,10 @@ class AlarmReceiver : BroadcastReceiver() {
             NotificationManagerCompat.from(context).notify(alarmId.hashCode(), notification)
         } catch (_: SecurityException) { }
 
-        // Play tone once; dismiss notification + clean up when done
         if (!alarm.muteInSilentMode || !isDndActive(context)) {
             playToneOnce(context, alarm.toneUri, alarmId.hashCode(), notificationManager)
         } else {
             notificationManager.cancel(alarmId.hashCode())
-        }
-
-        // Reschedule next alarm if repeating
-        if (alarm.repeatDays.isNotEmpty()) {
-            AlarmScheduler.scheduleAlarm(context, alarm)
         }
     }
 
