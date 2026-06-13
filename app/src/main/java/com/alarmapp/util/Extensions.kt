@@ -35,10 +35,11 @@ object AlarmScheduler {
                 context, baseCode + index, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeMs, pi)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                val info = AlarmManager.AlarmClockInfo(timeMs, pi)
+                alarmManager.setAlarmClock(info, pi)
             } else {
-                alarmManager.setWindow(AlarmManager.RTC_WAKEUP, timeMs, 30_000L, pi)
+                alarmManager.setExact(AlarmManager.RTC_WAKEUP, timeMs, pi)
             }
         }
 
@@ -58,7 +59,12 @@ object AlarmScheduler {
             context, baseCode + RENEWAL_FLAG, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        alarmManager.setWindow(AlarmManager.RTC_WAKEUP, renewalTime, 120_000L, pi)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            val info = AlarmManager.AlarmClockInfo(renewalTime, pi)
+            alarmManager.setAlarmClock(info, pi)
+        } else {
+            alarmManager.setExact(AlarmManager.RTC_WAKEUP, renewalTime, pi)
+        }
     }
 
     private fun generateSlots(alarm: Alarm, days: Int): List<Pair<Int, Long>> {
