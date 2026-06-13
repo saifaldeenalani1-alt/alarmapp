@@ -35,7 +35,11 @@ object AlarmScheduler {
                 context, baseCode + index, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            alarmManager.setWindow(AlarmManager.RTC_WAKEUP, timeMs, 120_000L, pi)
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeMs, pi)
+            } else {
+                alarmManager.setWindow(AlarmManager.RTC_WAKEUP, timeMs, 30_000L, pi)
+            }
         }
 
         scheduleRenewal(context, alarm, alarmManager, baseCode, slots.lastOrNull()?.second ?: now)
