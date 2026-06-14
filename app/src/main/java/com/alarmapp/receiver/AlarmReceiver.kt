@@ -44,6 +44,6 @@ class AlarmReceiver : BroadcastReceiver() {
             if (nm.currentInterruptionFilter == android.app.NotificationManager.INTERRUPTION_FILTER_NONE) return true
         }
         val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        return am.ringerMode == AudioManager.RINGER_MODE_SILENT
+        return am.ringerMode == AudioManager.RINGER_MODE_SILENT || am.ringerMode == AudioManager.RINGER_MODE_VIBRATE
     }
 }

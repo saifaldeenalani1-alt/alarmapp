@@ -190,7 +190,7 @@ fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) 
     var label by remember { mutableStateOf(alarm?.label ?: "") }
     var toneUri by remember { mutableStateOf(alarm?.toneUri ?: "") }
     var vibrate by remember { mutableStateOf(alarm?.vibrate ?: true) }
-    var muteInSilentMode by remember { mutableStateOf(alarm?.muteInSilentMode ?: false) }
+    var muteInSilentMode by remember { mutableStateOf(alarm?.muteInSilentMode ?: true) }
     var currentPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }

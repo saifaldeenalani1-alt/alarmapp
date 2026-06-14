@@ -12,6 +12,6 @@ data class Alarm(
     val repeatDays: Set<Int> = emptySet(),
     val toneUri: String = "",
     val vibrate: Boolean = true,
-    val muteInSilentMode: Boolean = false,
+    val muteInSilentMode: Boolean = true,
     val label: String = ""
 )
