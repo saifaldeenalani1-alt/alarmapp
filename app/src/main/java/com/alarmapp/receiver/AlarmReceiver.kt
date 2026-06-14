@@ -39,11 +39,13 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     private fun isInSilentMode(context: Context): Boolean {
+        val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
             if (nm.currentInterruptionFilter == android.app.NotificationManager.INTERRUPTION_FILTER_NONE) return true
         }
-        val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        return am.ringerMode == AudioManager.RINGER_MODE_SILENT || am.ringerMode == AudioManager.RINGER_MODE_VIBRATE
+        val ringerMode = am.ringerMode
+        if (ringerMode == AudioManager.RINGER_MODE_SILENT || ringerMode == AudioManager.RINGER_MODE_VIBRATE) return true
+        return am.getStreamVolume(AudioManager.STREAM_RING) == 0
     }
 }
