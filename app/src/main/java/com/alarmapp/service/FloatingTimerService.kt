@@ -9,6 +9,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -32,6 +33,7 @@ class FloatingTimerService : Service() {
         val id: String,
         var totalSeconds: Long,
         var elapsedSeconds: Long,
+        var startRealtime: Long,
         var isCountdown: Boolean,
         var isRunning: Boolean,
         var isPaused: Boolean,
@@ -57,7 +59,9 @@ class FloatingTimerService : Service() {
 
         fun getTimerInfo(id: String): Pair<Long, Boolean>? {
             val t = instance?.timers?.get(id) ?: return null
-            val display = if (t.isCountdown) t.totalSeconds - t.elapsedSeconds else t.elapsedSeconds
+            val extra = if (t.isRunning) (SystemClock.elapsedRealtime() - t.startRealtime) / 1000 else 0
+            val current = t.elapsedSeconds + extra
+            val display = if (t.isCountdown) t.totalSeconds - current else current
             return Pair(display, t.isRunning)
         }
 
@@ -163,6 +167,7 @@ class FloatingTimerService : Service() {
             id = timerId,
             totalSeconds = totalSeconds,
             elapsedSeconds = elapsedSeconds,
+            startRealtime = 0,
             isCountdown = isCountdown,
             isRunning = false,
             isPaused = false,
@@ -252,17 +257,25 @@ class FloatingTimerService : Service() {
         dialog.show()
     }
 
+    private fun currentElapsed(instance: TimerInstance): Long {
+        val extra = if (instance.isRunning) (SystemClock.elapsedRealtime() - instance.startRealtime) / 1000 else 0
+        return instance.elapsedSeconds + extra
+    }
+
     private fun toggleTimer(instance: TimerInstance) {
         if (!instance.isRunning) {
-            if (instance.isCountdown && instance.elapsedSeconds >= instance.totalSeconds) {
+            if (instance.isCountdown && currentElapsed(instance) >= instance.totalSeconds) {
                 instance.elapsedSeconds = 0
             }
+            instance.startRealtime = SystemClock.elapsedRealtime()
             instance.isRunning = true
             instance.isPaused = false
             updateViewAppearance(instance)
             updateDisplay(instance)
             scheduleTick()
         } else {
+            instance.elapsedSeconds = currentElapsed(instance)
+            instance.startRealtime = 0
             instance.isRunning = false
             instance.isPaused = true
             updateViewAppearance(instance)
@@ -305,16 +318,13 @@ class FloatingTimerService : Service() {
             for (timer in timers.values) {
                 if (timer.isRunning) {
                     anyRunning = true
-                    if (timer.isCountdown) {
-                        timer.elapsedSeconds++
-                        if (timer.elapsedSeconds >= timer.totalSeconds) {
-                            timer.elapsedSeconds = timer.totalSeconds
-                            timer.isRunning = false
-                            timer.isPaused = false
-                            updateViewAppearance(timer)
-                        }
-                    } else {
-                        timer.elapsedSeconds++
+                    val current = currentElapsed(timer)
+                    if (timer.isCountdown && current >= timer.totalSeconds) {
+                        timer.elapsedSeconds = timer.totalSeconds
+                        timer.startRealtime = SystemClock.elapsedRealtime()
+                        timer.isRunning = false
+                        timer.isPaused = false
+                        updateViewAppearance(timer)
                     }
                     updateDisplay(timer)
                 }
@@ -329,12 +339,10 @@ class FloatingTimerService : Service() {
     }
 
     private fun updateDisplay(instance: TimerInstance) {
-        val display = if (instance.isCountdown)
-            instance.totalSeconds - instance.elapsedSeconds
-        else
-            instance.elapsedSeconds
+        val current = currentElapsed(instance)
+        val display = if (instance.isCountdown) instance.totalSeconds - current else current
 
-        if (instance.isCountdown && instance.elapsedSeconds >= instance.totalSeconds && !instance.isRunning) {
+        if (instance.isCountdown && current >= instance.totalSeconds && !instance.isRunning) {
             instance.timerText.text = formatTimeShort(0)
         } else {
             instance.timerText.text = formatTimeShort(display)
