@@ -189,7 +189,6 @@ fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) 
     var repeatDays by remember { mutableStateOf(alarm?.repeatDays ?: emptySet()) }
     var label by remember { mutableStateOf(alarm?.label ?: "") }
     var toneUri by remember { mutableStateOf(alarm?.toneUri ?: "") }
-    var vibrate by remember { mutableStateOf(alarm?.vibrate ?: true) }
     var muteInSilentMode by remember { mutableStateOf(alarm?.muteInSilentMode ?: true) }
     var currentPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
     var showStartTimePicker by remember { mutableStateOf(false) }
@@ -282,11 +281,6 @@ fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) 
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("الاهتزاز", modifier = Modifier.weight(1f))
-                    Switch(checked = vibrate, onCheckedChange = { vibrate = it })
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("كتم الصوت في الوضع الصامت", modifier = Modifier.weight(1f))
                     Switch(checked = muteInSilentMode, onCheckedChange = { muteInSilentMode = it })
                 }
@@ -355,7 +349,7 @@ fun AddAlarmDialog(alarm: Alarm? = null, onDismiss: () -> Unit, onSave: (Alarm) 
                         repeatDays = repeatDays,
                         label = label,
                         toneUri = toneUri,
-                        vibrate = vibrate,
+                        vibrate = true,
                         muteInSilentMode = muteInSilentMode
                     )
                 )

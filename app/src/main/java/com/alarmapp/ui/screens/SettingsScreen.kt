@@ -11,7 +11,6 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -74,30 +73,6 @@ fun SettingsScreen(
                         Switch(
                             checked = isDarkTheme,
                             onCheckedChange = onThemeChanged
-                        )
-                    }
-                }
-            }
-        }
-
-        item {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Vibration, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(8.dp))
-                        Text("الاهتزاز عند التنبيه", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("الاهتزاز", style = MaterialTheme.typography.bodyMedium)
-                        Switch(
-                            checked = settings.vibrateEnabled,
-                            onCheckedChange = { save(settings.copy(vibrateEnabled = it)) }
                         )
                     }
                 }

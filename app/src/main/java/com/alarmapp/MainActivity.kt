@@ -78,6 +78,16 @@ class MainActivity : ComponentActivity() {
         }
 
         requestExactAlarmPermission()
+        requestDndPermission()
+    }
+
+    private fun requestDndPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val nm = getSystemService(android.app.NotificationManager::class.java)
+            if (nm?.isNotificationPolicyAccessGranted != true) {
+                startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+            }
+        }
     }
 
     private fun requestExactAlarmPermission() {

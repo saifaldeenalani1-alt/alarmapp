@@ -26,7 +26,7 @@ fun MainScreen(
         TabItem("منبه", Icons.Default.Alarm) { AlarmScreen() },
         TabItem("ساعة", Icons.Default.AccessTime) { ClockScreen() },
         TabItem("مؤقت", Icons.Default.Timer) { TimerScreen() },
-        TabItem("أيام", Icons.Default.CalendarMonth) { DayCounterScreen() },
+        TabItem("عداد", Icons.Default.CalendarMonth) { DayCounterScreen() },
         TabItem("إعدادات", Icons.Default.Settings) { SettingsScreen(
             isDarkTheme = isDarkTheme,
             onThemeChanged = onThemeChanged

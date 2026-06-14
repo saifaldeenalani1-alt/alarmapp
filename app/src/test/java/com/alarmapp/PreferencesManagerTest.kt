@@ -54,7 +54,6 @@ class PreferencesManagerTest {
         assertEquals(0xFFFFFFFF.toInt(), settings.fontColor)
         assertEquals(0xCC000000.toInt(), settings.backgroundColor)
         assertEquals(80, settings.transparency)
-        assertTrue(settings.vibrateEnabled)
     }
 
     @Test
@@ -62,12 +61,10 @@ class PreferencesManagerTest {
         val settings = AppSettings().copy(
             fontSize = 24,
             fontColor = 0xFFD93030.toInt(),
-            transparency = 50,
-            vibrateEnabled = false
+            transparency = 50
         )
         assertEquals(24, settings.fontSize)
         assertEquals(0xFFD93030.toInt(), settings.fontColor)
         assertEquals(50, settings.transparency)
-        assertFalse(settings.vibrateEnabled)
     }
 }

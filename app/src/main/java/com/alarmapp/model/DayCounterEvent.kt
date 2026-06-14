@@ -5,5 +5,7 @@ data class DayCounterEvent(
     val name: String,
     val date: Long,
     val isCountdown: Boolean = true,
-    val notifyOnComplete: Boolean = false
+    val notifyOnComplete: Boolean = false,
+    val alarmEnabled: Boolean = false,
+    val reminderIntervalDays: Int = 0
 )
