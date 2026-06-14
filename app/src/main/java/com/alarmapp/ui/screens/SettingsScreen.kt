@@ -1,5 +1,9 @@
 package com.alarmapp.ui.screens
 
+import android.content.Intent
+import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -8,6 +12,7 @@ import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Vibration
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -94,6 +99,44 @@ fun SettingsScreen(
                             checked = settings.vibrateEnabled,
                             onCheckedChange = { save(settings.copy(vibrateEnabled = it)) }
                         )
+                    }
+                }
+            }
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            item {
+                val nm = context.getSystemService(android.app.NotificationManager::class.java)
+                val hasDndAccess = nm?.isNotificationPolicyAccessGranted == true
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = if (!hasDndAccess) CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ) else CardDefaults.cardColors()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.NotificationsOff, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(8.dp))
+                            Text("الوضع الصامت", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            if (hasDndAccess) "تم منح صلاحية كشف الوضع الصامت"
+                            else "يلزم منح صلاحية الوصول إلى سياسة الإشعارات لكشف الوضع الصامت على أجهزة شاومي",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        if (!hasDndAccess) {
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedButton(
+                                onClick = {
+                                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("منح الصلاحية")
+                            }
+                        }
                     }
                 }
             }
